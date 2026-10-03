@@ -1,10 +1,16 @@
 # Changelog
 
+## v0.2.0-territory-network · 2026-10-04
+
+- 将回合改为移动／行动各一次且顺序自由，飞弹减少为一发；HP 升至 10。
+- 新增四连通稳定／临时领地、补给断粮、入侵塔延迟吞并快照与抢救窗口。
+- 每方五塔，出生塔计入上限；成长、保护重叠、拆塔、重部署均立即重算连通。
+- 角色弹射与独立塔中继；飞弹每塔每回合仅一次中继。
+- Charge I 携带、II 5×5 爆炸、III 攻城；碰撞瞬间脚下颜色判伤、携带跨色多段伤害及沿入射路径合法释放。
+- 删除重生、保护、近战、皇后移动、固定顺序、三发飞弹和撤销。
+- 全屏等比战场、浮动 HUD、右下分层操作、地图选塔、safe-area、手机／平板热座和桌面固定视角。
+- 以新版规则替换旧测试，加入整局、相机和多视口交互回归测试。
+
 ## v0.1.0-prototype · 2026-10-03
 
-- Initial complete local two-player game based on the approved v1.0 development document.
-- Full role, territory, tower growth, protection, redeployment, ricochet and unlimited relay rules.
-- Mobile handoff/rotation and fixed landscape desktop view.
-- Quick/Standard/Long modes, result screens, one-round overtime, rematch, rules, sound and precise aiming.
-- Automated rule, physics, complete-match, input and DOM smoke coverage. Vite production build.
-- Sites-only release. No Netlify.
+首次发布：本地双人 PvP、三发飞弹、皇后移动、塔成长、手机热座和桌面横向战场。

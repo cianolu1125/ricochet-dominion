@@ -6,102 +6,63 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#111a22" />
+    <meta name="theme-color" content="#111c27" />
     <meta
       name="description"
-      content="同设备双人弹射领地战争。移动角色、建造三座中继塔、反弹飞弹争夺领地。"
+      content="弹射领地战争：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
     />
-    <title>弹射领地战争 · Ricochet Dominion</title>
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111a22'/%3E%3Cpath d='M7 23L15 7L25 23Z' fill='%23ef8b82'/%3E%3Ccircle cx='22' cy='10' r='4' fill='%238fbceb'/%3E%3C/svg%3E"
-    />
+    <title>弹射领地战争 · v0.2.0</title>
   </head>
   <body>
-    <main id="app">
-      <header class="topbar">
-        <div class="wordmark">
-          <span class="brand-shape">◇</span
-          ><span>弹射领地战争<small>RICOCHET DOMINION</small></span>
-        </div>
-        <nav>
-          <button
-            class="icon-button"
-            id="sound"
-            aria-label="开启音效"
-            aria-pressed="false"
-          >
-            ♪</button
-          ><button class="icon-button" id="help" aria-label="游戏规则">?</button
-          ><button class="icon-button" id="menu" aria-label="对局菜单">
-            ≡
-          </button>
-        </nav>
-      </header>
-      <section class="scorebar" aria-label="对局信息">
-        <span id="round">准备开始</span>
-        <div class="territory-meter">
-          <span id="red-meter"></span><span id="neutral-meter"></span
-          ><span id="blue-meter"></span>
-        </div>
-        <span id="mode">本地双人</span>
-      </section>
-      <div class="arena-layout">
-        <aside class="player-card red" id="red-card"></aside>
-        <section class="board-shell" aria-label="战场">
-          <canvas
-            id="board"
-            tabindex="0"
-            aria-label="战场。角色阶段点击或拖动至横竖斜线上的目标；飞弹阶段从发射点反向拖拽。也可使用下方操作按钮。"
-          ></canvas>
-          <div class="board-corner" id="board-label">18 × 32</div>
-          <div id="toast" role="status" aria-live="polite"></div>
-        </section>
-        <aside class="player-card blue" id="blue-card"></aside>
+    <main id="game">
+      <div id="battlefield">
+        <canvas
+          id="board"
+          tabindex="0"
+          aria-label="弹射领地战场，选择移动或飞弹后从发光位置向后拖拽"
+        ></canvas>
       </div>
-      <section class="controls" aria-label="回合操作">
-        <div class="phase-line">
-          <div>
-            <span id="turn-badge" class="turn-badge">红方</span
-            ><strong id="phase-title">角色行动</strong>
-          </div>
-          <span id="ammo"></span>
-        </div>
-        <p class="instruction" id="instruction">
-          点击横、竖、斜线上的目标格移动
-        </p>
-        <div id="actions" class="actions"></div>
-        <details id="fine-aim" hidden>
-          <summary>精细瞄准</summary>
-          <div class="aim-fields">
+      <div id="hud">
+        <div id="round" class="pill"></div>
+        <button id="help" class="icon-button" aria-label="查看游戏规则">
+          ?</button
+        ><button id="menu" class="icon-button" aria-label="对局设置">⋯</button>
+        <div id="opponent" class="player-hud"></div>
+        <div id="current" class="player-hud"></div>
+        <div id="charge" class="pill" hidden></div>
+        <div id="hint" role="status"></div>
+        <div id="toast" role="status" hidden></div>
+      </div>
+      <div id="controls">
+        <div id="stack" hidden></div>
+        <div id="precision" hidden>
+          <details>
+            <summary>精确瞄准</summary>
             <label
-              >方向 <output id="angle-value">0°</output
+              >角度 <output id="angle-value">0°</output
               ><input
                 id="angle"
                 type="range"
                 min="-180"
                 max="180"
-                value="0"
-                step="1" /></label
+                value="0" /></label
             ><label
-              >力度 <output id="power-value">60%</output
+              >力度 <output id="power-value">70%</output
               ><input
                 id="power"
                 type="range"
-                min="10"
+                min="8"
                 max="100"
-                value="60"
-                step="1" /></label
-            ><button id="precise-fire" class="primary">发射</button>
-          </div>
-        </details>
-      </section>
-      <footer>
-        <span id="latest-event">同设备双人 · 无需账号</span><span>v0.1.0</span>
-      </footer>
+                value="70" /></label
+            ><button id="precise-fire">发射</button>
+          </details>
+        </div>
+        <button id="fab" class="fab">操作</button>
+      </div>
+      <div id="overlay">
+        <section id="panel" aria-labelledby="panel-title"></section>
+      </div>
     </main>
-    <dialog id="modal"><div id="modal-content"></div></dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

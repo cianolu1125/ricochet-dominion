@@ -1,34 +1,35 @@
 # 弹射领地战争 · Ricochet Dominion
 
-Version **v0.1.0-prototype**. A mobile-first, local, turn-based ricochet territory PvP game. Two players share one device. No computer opponent, account, server, database, match save or external artwork.
+**v0.2.0-territory-network** · 同设备本地双人 PvP。手机与平板采用热座旋转；桌面固定红左蓝右。无电脑对手、账号、联网、数据库或对局存档。
 
-## Play
+## 玩法
 
-- Each turn: one role action, then either up to three missiles or one tower deployment.
-- Queen movement in eight straight directions. Friendly towers are passable; enemy towers and role block movement.
-- Melee/dismantle requires adjacency at the start of the turn. Moving grants melee-only immunity until next own turn start.
-- Each player has 3 HP. Hits respawn the role with immunity through their next turn end. Missile damage is capped at one per enemy tactical stage.
-- Drag backwards from the glowing source and release to fire; precise angle/power sliders are also available. Walls and enemy towers reflect; friendly towers catch and relaunch the same shot without spending another missile. Relays are unlimited. Abandoning a caught missile causes no explosion.
-- Blast paints 3×3. Towers protect 1×1, then grow on their owner's next two turn starts to 3×3 and 5×5. Maximum three towers; deployment underfoot only. Redeploy a selected slot with confirmation. Enemy protection wins against later expansion.
-- Win immediately at enemy 0 HP; 80% territory at full round end; or final-round area, then HP, then towers. Equal scores get one overtime round, then compare area gains, then draw.
-- Mobile portrait view flips 180° at handoff. Desktop view is fixed red-left, blue-right. Resize transposes the same 576-cell match rather than restarting it.
+- 每回合有一次「移动」和一次「行动」，顺序自由，也可跳过。移动为弹射；行动四选一：一发飞弹、建塔／重部署、拆塔、跳过。
+- 从发光角色或塔中心向后拖拽，松手发射。精确瞄准可调整角度和力度。发射后不可撤销；中继时可以停止，角色落在塔上，飞弹在塔处正常爆炸。
+- 己方颜色通过上下左右连通至任意己塔为稳定领地，否则为临时领地。临时颜色不会自然消失；面积计分包含全部本方颜色。
+- 在敌方临时领地建塔后，记录原连通块快照。对手有完整一回合抢救；建塔方下一回合开始时，仍为敌方临时领地的快照格被吞并。来源塔全部移除则取消吞并。
+- 每方最多五塔，出生塔计入上限且初始为 5×5。新塔按拥有者回合开始成长 1×1→3×3→5×5；先获得的敌方保护优先。重部署保留旧地颜色但移除旧塔供给和独占保护。
+- 角色移动中每座己塔最多捕获一次；角色中继不消耗飞弹中继。敌塔／敌人／边界反弹；双方角色与敌塔不能静止同格。
+- 每座己塔每个己方回合捕获飞弹一次，之后仅反弹。Charge I 携带敌人；II 为 5×5 爆炸；III 可击毁敌塔。更多不同塔可以继续中继，Charge 上限 III。
+- 双方 10 HP。飞弹首次碰撞时先读目标脚下颜色，是目标自己颜色才 -1；携带时每次非己色→己色再 -1，连续同色不重复。防御塔只保护土地。没有重生、角色保护、近战或皇后移动。
+- 红方飞弹被红塔捕获时，携带的蓝王沿入射路径反向落在塔前最近合法格；重发需真实碰撞才能再捕获。攻城先移除塔和独占保护，重算连通，再 5×5 爆炸和重算。
+- HP 归零立即结束。完整轮末达到 80% 获胜；10／14／18 轮后比较面积、HP、塔数。完全同分加时一轮，比较净领地变化，仍相同为平局。
 
-## Development
+## 开发与验证
 
-Node 20.19+ or 22.12+. Install: `npm ci`. Start: `npm run dev`. Validate: `npm test && npm run check && npm run build`. Output: `dist/`.
+Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。完整检查：`npm test`、`npm run check`、`npm run build`。产物 `dist/`。
 
-ES modules: `engine.js` is the authoritative rule state; `physics.js` supplies fixed 120Hz continuous collision steps; `view.js` maps coordinates; `renderer.js` reads state; `main.js` binds accessible DOM controls and input. All gameplay configuration is in `config.js`. Settings save only the optional sound preference locally.
+`engine.js` 负责领地、塔和回合规则；`physics.js` 负责共享弹射、连续碰撞及逐格携带判伤；`view.js` 负责锁定地图配置与可逆视角；`renderer.js` 绘制几何战场；`main.js` 绑定全屏 HUD、层级菜单和输入。默认参数集中在 `config.js`。
 
-## Release
+地图配置在开局时锁定：手机 18×32、平板竖屏 24×32、触屏横屏 32×24、桌面 32×18。视口变化只缩放显示；采用等比 aspect-fit，不拉伸圆形和反射角。支持 safe-area、减少动效偏好、键盘操作菜单和精确瞄准。
 
-Sites: https://ricochet-dominion.cianolu.chatgpt.site
+自动测试覆盖规格 T01–T34 核心规则，以及四种配置整局、五种视口 DOM 操作、保护区重叠、加时、精确格子穿越和帧率一致性。DOM 测试不等同于 iOS／Android 真机测试；本次环境未提供合规的实时游戏浏览器 QA 能力，真机触感与浏览器视觉仍待实测。
 
-Release target: GitHub `cianolu1125/ricochet-dominion`, `main`, tag `v0.1.0-prototype`. Sites source is additionally managed by its native source workflow. GitHub main updates do **not** automatically publish Sites; deploy the checked source via Sites after each release. Netlify is not configured or deployed.
+## 发布
 
-Known environment limitation: no permitted browser-control QA capability was available during this build. Engine/physics/integration/DOM smoke tests and production build validation do not substitute for iOS/Android device and Safari/Edge testing. WebMCP is read-only and feature-detected; browser-native WebMCP validation is unavailable.
+- Sites：https://ricochet-dominion.cianolu.chatgpt.site
+- GitHub：私有仓库 `cianolu1125/ricochet-dominion`，分支 `main`。
+- Sites 与 GitHub 保持相同版本源码，提交历史各自保留。GitHub 推送不会自动发布 Sites。
+- 本次不部署 Netlify。
 
-## Boundary decisions
-
-No overlapping tower bodies. Respawn finds nearest safe cell if the designated cell is occupied. Equal overtime is a draw. View orientation does not guarantee a moving role remains in its starting half. Tactical skipping is explicit, while role undo is available until the first missile or tower commit. Sound is off initially. No turn timer is enforced.
-
-See `docs/implementation-plan.md` and `CHANGELOG.md`.
+参见 `docs/v0.2.0-plan.md` 与 `CHANGELOG.md`。`docs/implementation-plan.md` 为 v0.1.0 历史记录，规则已由本版本替代。
