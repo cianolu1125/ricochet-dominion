@@ -256,7 +256,7 @@ export function render(canvas, s, v) {
       ctx.fill();
       ctx.restore();
       const hit = previewImpact(s, aim, aim.power);
-      if (hit) {
+      if (hit && Math.hypot(hit.x - origin(s).x, hit.y - origin(s).y) <= 1 + aim.power * 4) {
         const hp = pt(hit);
         ctx.lineWidth = 0.05;
         circle(hp, 0.22, "#eaf2f6", true);

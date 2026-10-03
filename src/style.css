@@ -261,36 +261,6 @@ canvas {
   margin: 8px;
   line-height: 1.6;
 }
-#precision {
-  background: #101b26ef;
-  border-radius: 16px;
-  padding: 10px 14px;
-  width: 220px;
-  border: 1px solid #829bad30;
-}
-summary {
-  font-size: 13px;
-  min-height: 24px;
-  cursor: pointer;
-}
-#precision label {
-  display: block;
-  font-size: 14px;
-  margin-top: 12px;
-}
-output {
-  float: right;
-}
-input[type="range"] {
-  display: block;
-  width: 100%;
-  accent-color: #adc8de;
-  min-height: 32px;
-}
-#precision button {
-  width: 100%;
-  margin-top: 8px;
-}
 .aiming #help,
 .aiming #menu {
   opacity: 0.25;
@@ -453,4 +423,58 @@ h2 {
   * {
     scroll-behavior: auto;
   }
+}
+
+/* Compact dock outside the playable surface; keep OS edge gestures away. */
+html, body { overscroll-behavior: none; }
+#game { --dock-height: 62px; }
+#battlefield {
+  inset: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px)
+    calc(var(--safe-bottom) + var(--dock-height) + 12px) calc(var(--safe-left) + 16px);
+}
+#toolbar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--dock-height) + var(--safe-bottom));
+  padding: 6px calc(var(--safe-right) + 8px) calc(var(--safe-bottom) + 6px) calc(var(--safe-left) + 8px);
+  display: flex; align-items: center; gap: 4px;
+  background: #101b26; border-top: 1px solid #829bad26;
+}
+#toolbar .player-hud, .compact #toolbar .player-hud {
+  position: static; min-width: 0; padding: 0 4px; border: 0;
+  background: transparent; backdrop-filter: none; flex-shrink: 0;
+}
+#toolbar .player-hud strong, .compact #toolbar .player-hud strong { font-size: 12px; }
+#toolbar .player-hud strong span { display: block; font-size: 12px; }
+#toolbar .hp-bar { display: none; }
+#toolbar .stats { font-size: 12px; }
+#turn-info { flex: 1; min-width: 0; text-align: center; }
+#round, .compact #round, #charge {
+  position: static; transform: none; max-width: none;
+  font-size: 12px; letter-spacing: 0; padding: 0; border: 0;
+  background: none; white-space: nowrap;
+}
+#charge { margin-top: 3px; color: #cedde9; }
+#toolbar > button { min-width: 32px; padding: 5px; border-radius: 10px; font-size: 14px; }
+#toolbar #opponent-toggle { min-width: 44px; }
+#controls, .compact #controls {
+  position: relative; right: auto; bottom: auto; flex-shrink: 0; display: block;
+}
+.fab { width: 62px; height: 48px; border-radius: 14px; box-shadow: none; }
+#stack { position: absolute; right: 0; bottom: calc(100% + 12px); }
+#opponent {
+  left: calc(var(--safe-left) + 24px); right: auto;
+  top: calc(var(--safe-top) + 24px); padding-right: 42px;
+}
+#opponent-close { position: absolute; right: 0; top: 0; padding: 0; width: 36px; background: none; border: 0; font-size: 22px; }
+#hint { top: auto; bottom: calc(var(--safe-bottom) + var(--dock-height) + 16px); max-width: calc(100vw - 48px); white-space: normal; width: max-content; }
+#toast { bottom: calc(var(--safe-bottom) + var(--dock-height) + 48px); }
+@media (max-width: 600px) {
+  #toolbar #help { display: none; }
+  #toolbar #current .stats { font-size: 12px; }
+}
+@media (max-width: 350px) {
+  #toolbar { gap: 2px; }
+  .fab { width: 58px; }
+  #toolbar .player-hud { padding: 0 2px; }
 }

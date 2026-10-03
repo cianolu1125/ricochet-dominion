@@ -18,6 +18,8 @@ let selectedRounds = 14,
   chosenTower = null,
   aim = null,
   pointer = null,
+  dragStart = null,
+  opponentVisible = false,
   effects = [],
   transitions = new Map(),
   last = 0,
@@ -203,12 +205,12 @@ function update() {
   $("game").classList.toggle("aiming", aiming);
   $("game").classList.toggle("flying", flying);
   $("round").textContent =
-    `${state.overtime ? "加时" : "ROUND " + state.round + " / " + state.maxRounds} · ${NAMES[c]}`;
+    `${state.overtime ? "加时" : "ROUND " + state.round + "/" + state.maxRounds}`;
   for (const [id, owner] of [
     ["current", c],
     ["opponent", E.enemy(c)],
   ]) {
-    $(id).innerHTML = playerHUD(owner);
+    $(id === "opponent" ? "opponent-info" : id).innerHTML = playerHUD(owner);
     $(id).style.setProperty("--team", TEAM[owner]);
   }
   $("charge").hidden = !state.phase.startsWith("MISSILE");
@@ -217,7 +219,7 @@ function update() {
   let hint = selection
     ? "点击战场上的塔"
     : aiming
-      ? `${state.phase.includes("RELAY") ? "中继 · " : ""}从发光处向后拖拽${aim ? " · " + Math.round(aim.power * 100) + "%" : ""}`
+      ? `${state.phase.includes("RELAY") ? "中继 · " : ""}战场任意处向后拖拽${aim ? " · " + Math.round(aim.power * 100) + "%" : ""}`
       : flying
         ? ""
         : !state.moveAvailable && !state.actionAvailable
@@ -236,7 +238,8 @@ function update() {
         : "操作";
   fab.disabled = flying || rotationStart !== null || !!overlayKind;
   fab.className = `fab ${c === 1 ? "red" : "blue"} ${flying ? "busy" : ""}`;
-  $("precision").hidden = !aiming;
+  $("opponent").hidden = !opponentVisible;
+  $("opponent-toggle").setAttribute("aria-expanded", String(opponentVisible));
   drawStack();
   if (state.winner && overlayKind !== "result") result();
 }
@@ -282,7 +285,7 @@ function rules() {
   rulesReturn = overlayKind || "game";
   panel(
     "rules",
-    `<p class="eyebrow">HOW TO PLAY</p><h2 id="panel-title">先接通，再扩张</h2><p><b>每回合：</b>1 次移动 + 1 次行动，顺序自由。行动可选择飞弹、建塔／重部署、拆塔。可跳过或直接结束回合。</p><p><b>弹射：</b>从发光角色或塔中心向后拖拽，松手发射。碰墙、敌塔和敌人反弹；己塔可捕获后重新瞄准。移动不染色、不扣血。</p><p><b>领地：</b>颜色通过上下左右接到己塔才稳定；断粮变为临时领地，颜色保留。在敌方临时领地建塔后，对方有完整一回合抢救，下一次你的回合开始时吞并仍未接通的原区域。</p><p><b>五塔网络：</b>出生塔计入 5 座上限。新塔每次自己的回合开始成长：1×1 → 3×3 → 5×5。保护地不能被普通飞弹染色。进入敌塔实际控制区即可用行动拆塔。</p><p><b>飞弹蓄能：</b>同一座己塔每回合仅捕获飞弹一次，已用塔只反弹。I 携带敌人；II 爆炸 5×5；III 击毁敌塔。普通爆炸为 3×3。角色中继与飞弹中继独立。</p><p><b>HP：</b>10 点。飞弹碰人瞬间，目标脚下为其自己颜色才扣 1 点。携带时每次从其他颜色重新进入目标颜色再扣 1 点；同一连续色区不重复扣。塔只保护地，不保护人。</p><p><b>胜负：</b>HP 归零立即结束；整轮结束占地达到 80% 获胜；最后一轮比较领地、HP、塔数。完全同分加时一轮，比净领地变化，再相同为平局。</p><p>发射后不可撤销。中继时「停止」会在当前塔位置结束移动／引爆飞弹。触屏换回合旋转战场，电脑红左蓝右。</p><div class="legend"><span><i></i>稳定</span><span><i class="temporary"></i>临时</span><span><i class="protected"></i>保护</span><span><i class="pending"></i>待吞并</span></div><button class="primary" data-panel="close">明白了</button>`,
+    `<p class="eyebrow">HOW TO PLAY</p><h2 id="panel-title">先接通，再扩张</h2><p><b>每回合：</b>1 次移动 + 1 次行动，顺序自由。行动可选择飞弹、建塔／重部署、拆塔。可跳过或直接结束回合。</p><p><b>弹射：</b>在战场任意位置向后拖拽，松手发射。碰墙、敌塔和敌人反弹；己塔可捕获后重新瞄准。移动不染色、不扣血。</p><p><b>领地：</b>颜色通过上下左右接到己塔才稳定；断粮变为临时领地，颜色保留。在敌方临时领地建塔后，对方有完整一回合抢救，下一次你的回合开始时吞并仍未接通的原区域。</p><p><b>五塔网络：</b>出生塔计入 5 座上限。新塔每次自己的回合开始成长：1×1 → 3×3 → 5×5。保护地不能被普通飞弹染色。进入敌塔实际控制区即可用行动拆塔。</p><p><b>飞弹蓄能：</b>同一座己塔每回合仅捕获飞弹一次，已用塔只反弹。I 携带敌人；II 爆炸 5×5；III 击毁敌塔。普通爆炸为 3×3。角色中继与飞弹中继独立。</p><p><b>HP：</b>10 点。飞弹碰人瞬间，目标脚下为其自己颜色才扣 1 点。携带时每次从其他颜色重新进入目标颜色再扣 1 点；同一连续色区不重复扣。塔只保护地，不保护人。</p><p><b>胜负：</b>HP 归零立即结束；整轮结束占地达到 80% 获胜；最后一轮比较领地、HP、塔数。完全同分加时一轮，比净领地变化，再相同为平局。</p><p>发射后不可撤销。中继时「停止」会在当前塔位置结束移动／引爆飞弹。触屏换回合旋转战场，电脑红左蓝右。</p><div class="legend"><span><i></i>稳定</span><span><i class="temporary"></i>临时</span><span><i class="protected"></i>保护</span><span><i class="pending"></i>待吞并</span></div><button class="primary" data-panel="close">明白了</button>`,
   );
 }
 function result() {
@@ -424,12 +427,20 @@ $("panel").addEventListener("click", (event) => {
       `<h2 id="panel-title">重新开始？</h2><p>当前对局将清空。</p><button class="primary" data-panel="start">确认重新开始</button><div class="row"><button data-panel="close">继续对局</button></div>`,
     );
 });
+$("opponent-toggle").onclick = () => {
+  opponentVisible = !opponentVisible;
+  update();
+};
+$("opponent-close").onclick = () => {
+  opponentVisible = false;
+  update();
+};
 $("help").onclick = rules;
 function menuPanel() {
   rulesReturn = "game";
   panel(
     "menu",
-    `<h2 id="panel-title">对局设置</h2><p>第 ${state.round} 轮 · ${NAMES[state.current]}</p><button class="primary" data-panel="close">继续对局</button><div class="row"><button data-panel="sound">声音 ${sound ? "开" : "关"}</button><button data-panel="restart">重新开始</button></div><p class="version">v${VERSION}</p>`,
+    `<h2 id="panel-title">对局设置</h2><p>第 ${state.round} 轮 · ${NAMES[state.current]}</p><button class="primary" data-panel="close">继续对局</button><div class="row"><button data-panel="rules">玩法规则</button><button data-panel="sound">声音 ${sound ? "开" : "关"}</button><button data-panel="restart">重新开始</button></div><p class="version">v${VERSION}</p>`,
   );
 }
 $("menu").onclick = menuPanel;
@@ -444,15 +455,14 @@ function worldPoint(event) {
     viewOwner,
   );
 }
-function pointerAim(p) {
-  const o = P.origin(state),
-    tile = canvas.clientWidth / state.width,
-    maxPull = Math.min(130, innerWidth * 0.35);
-  return {
-    x: o.x - p.x,
-    y: o.y - p.y,
-    power: Math.min(1, (Math.hypot(o.x - p.x, o.y - p.y) * tile) / maxPull),
-  };
+function pointerAim(event) {
+  const rect = canvas.getBoundingClientRect(),
+    maxPull = Math.min(130, rect.width * 0.35),
+    dx = dragStart.x - event.clientX,
+    dy = dragStart.y - event.clientY,
+    d = fromView({ x: dx / rect.width * state.width, y: dy / rect.height * state.height }, state, viewOwner),
+    zero = fromView({ x: 0, y: 0 }, state, viewOwner);
+  return { x: d.x - zero.x, y: d.y - zero.y, power: Math.min(1, Math.hypot(dx, dy) / maxPull) };
 }
 function fire(a) {
   if (P.launch(state, a, a.power)) {
@@ -490,26 +500,22 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
   if (!state.phase.includes("AIM")) return;
-  const o = P.origin(state),
-    tile = canvas.clientWidth / state.width;
-  if (Math.hypot(p.x - o.x, p.y - o.y) * tile > Math.max(24, tile * 0.9)) {
-    toast("从发光的角色或塔中心向后拉");
-    return;
-  }
+  // Relative drag: no need to touch the character or relay tower precisely.
+  dragStart = { x: event.clientX, y: event.clientY };
   pointer = event.pointerId;
-  aim = pointerAim(p);
+  aim = pointerAim(event);
   canvas.setPointerCapture(event.pointerId);
   event.preventDefault();
   update();
 });
 canvas.addEventListener("pointermove", (event) => {
   if (pointer !== event.pointerId) return;
-  aim = pointerAim(worldPoint(event));
+  aim = pointerAim(event);
   update();
 });
 canvas.addEventListener("pointerup", (event) => {
   if (pointer !== event.pointerId) return;
-  const a = aim;
+  const a = pointerAim(event);
   pointer = null;
   if (canvas.hasPointerCapture(event.pointerId))
     canvas.releasePointerCapture(event.pointerId);
@@ -521,26 +527,6 @@ for (const name of ["pointercancel", "lostpointercapture"])
     aim = null;
     update();
   });
-function preciseAim() {
-  const angle = (Number($("angle").value) * Math.PI) / 180,
-    d = fromView({ x: Math.sin(angle), y: -Math.cos(angle) }, state, viewOwner),
-    zero = fromView({ x: 0, y: 0 }, state, viewOwner);
-  aim = {
-    x: d.x - zero.x,
-    y: d.y - zero.y,
-    power: Number($("power").value) / 100,
-  };
-  $("angle-value").textContent = $("angle").value + "°";
-  $("power-value").textContent = $("power").value + "%";
-  update();
-}
-$("angle").oninput = preciseAim;
-$("power").oninput = preciseAim;
-$("precise-fire").onclick = () => {
-  if (overlayKind || rotationStart !== null) return;
-  preciseAim();
-  fire(aim);
-};
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (overlayKind === "rules") {
