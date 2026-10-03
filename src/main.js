@@ -1,639 +1,629 @@
 import "./style.css";
+import { CONFIG, VERSION, NAMES } from "./config.js";
 import * as E from "./engine.js";
-import { launch, stepMissile, abandon } from "./physics.js";
-import { CONFIG, NAMES, VERSION } from "./config.js";
-import { toView, fromView } from "./view.js";
-import { render } from "./renderer.js";
-
+import * as P from "./physics.js";
+import { camera, profileFor, toView, fromView } from "./view.js";
+import { render, TEAM } from "./renderer.js";
 const $ = (id) => document.getElementById(id),
   canvas = $("board"),
-  modal = $("modal");
-let state = E.createGame(),
-  desktop = matchMedia("(min-width:900px)").matches,
+  reduced = matchMedia("(prefers-reduced-motion: reduce)"),
+  touch = () => matchMedia("(pointer: coarse)").matches;
+let selectedRounds = 14,
+  state = E.createGame(14, profileFor(innerWidth, innerHeight, touch())),
   viewOwner = 1,
   rotation = 0,
-  rotationStart = 0,
-  rotating = false,
-  selectedRounds = 14,
+  rotationStart = null,
+  menuLevel = null,
+  selection = null,
+  chosenTower = null,
   aim = null,
-  cursor = null,
   pointer = null,
   effects = [],
-  toastTimer,
-  accumulator = 0,
+  transitions = new Map(),
   last = 0,
-  audioContext;
-const reduced = matchMedia("(prefers-reduced-motion:reduce)");
-let resultShown = false,
-  rulesReturn = "close";
-let sound = false;
+  accumulator = 0,
+  overlayKind = "home",
+  rulesReturn = "home",
+  toastTimer,
+  sound = false,
+  audio;
 try {
   sound = localStorage.getItem("rd-sound") === "on";
 } catch {}
-function tone(freq = 440, duration = 0.07) {
+function tone(freq = 450) {
   if (!sound) return;
   try {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    audioContext.resume();
-    const o = audioContext.createOscillator(),
-      g = audioContext.createGain();
-    o.connect(g);
-    g.connect(audioContext.destination);
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(),
+      g = audio.createGain();
     o.frequency.value = freq;
-    o.type = "sine";
-    g.gain.setValueAtTime(0.04, audioContext.currentTime);
-    g.gain.exponentialRampToValueAtTime(
-      0.001,
-      audioContext.currentTime + duration,
-    );
+    g.gain.setValueAtTime(0.025, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.08);
+    o.connect(g);
+    g.connect(audio.destination);
     o.start();
-    o.stop(audioContext.currentTime + duration);
+    o.stop(audio.currentTime + 0.08);
   } catch {}
-}
-function syncSound() {
-  $("sound").setAttribute("aria-pressed", String(sound));
-  $("sound").setAttribute("aria-label", sound ? "关闭音效" : "开启音效");
-  $("sound").style.color = sound ? "#e7edf1" : "#708391";
 }
 function toast(text) {
   $("toast").textContent = text;
-  $("toast").classList.add("visible");
+  $("toast").hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 1800);
+  toastTimer = setTimeout(() => ($("toast").hidden = true), 2300);
 }
 function fit() {
-  desktop = matchMedia("(min-width:900px)").matches;
-  const shell = canvas.parentElement,
-    box = shell.getBoundingClientRect(),
-    W = desktop ? 32 : 18,
-    H = desktop ? 18 : 32,
-    tile = Math.max(1, Math.min(box.width / W, (box.height - 2) / H)),
-    width = tile * W,
-    height = tile * H,
-    dpr = Math.min(3, devicePixelRatio || 1);
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
-  $("board-label").textContent = `${W} × ${H}`;
-  aim = null;
-  pointer = null;
-  cursor = null;
+  const rect = canvas.parentElement.getBoundingClientRect(),
+    c = camera(state, rect.width || innerWidth, rect.height || innerHeight),
+    dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.style.width = c.width + "px";
+  canvas.style.height = c.height + "px";
+  canvas.width = Math.round(c.width * dpr);
+  canvas.height = Math.round(c.height * dpr);
+  $("game").classList.toggle(
+    "compact",
+    Math.min(innerWidth, innerHeight) < 340,
+  );
 }
-function button(label, action, options = {}) {
-  return `<button data-action="${action}" class="${options.primary ? "primary " : ""}${options.quiet ? "quiet secondary" : ""}" ${options.disabled ? "disabled" : ""}>${label}</button>`;
+// Rendering transitions never delay or mutate authoritative rule settlement.
+function visualSnapshot() {
+  return {
+    cells: [...state.cells],
+    stability: [...state.stability],
+    hp: [0, state.players[1].hp, state.players[2].hp],
+    towerIds: state.towers.map((t) => t.id),
+    claims: structuredClone(state.claims),
+  };
 }
-function card(owner) {
+function visualChanges(before, time = performance.now()) {
+  if (!before || reduced.matches) return;
+  const newTower = state.towers.find((t) => !before.towerIds.includes(t.id));
+  const claimTower = before.claims
+    .filter((c) => c.captor === state.current)
+    .flatMap((c) => c.sources)
+    .map((id) => state.towers.find((t) => t.id === id))
+    .find(Boolean);
+  const impact = [...effects]
+    .reverse()
+    .find((e) => ["blast", "siege"].includes(e.type));
+  const anchor =
+    newTower?.pos ||
+    claimTower?.pos ||
+    impact ||
+    state.players[state.current].pos;
+  for (let i = 0; i < state.cells.length; i++)
+    if (
+      before.cells[i] !== state.cells[i] ||
+      before.stability[i] !== state.stability[i]
+    ) {
+      const colorChanged = before.cells[i] !== state.cells[i];
+      transitions.set(i, {
+        from: before.cells[i],
+        fromTemporary: before.stability[i] === "temporary",
+        born: time,
+        delay: colorChanged
+          ? Math.min(
+              160,
+              Math.hypot(
+                (i % state.width) - anchor.x,
+                Math.floor(i / state.width) - anchor.y,
+              ) * 9,
+            )
+          : 0,
+        duration: colorChanged ? 250 : 200,
+      });
+    }
+  for (const owner of [1, 2])
+    if (state.players[owner].hp < before.hp[owner]) {
+      const p = state.players[owner].world || {
+        x: state.players[owner].pos.x + 0.5,
+        y: state.players[owner].pos.y + 0.5,
+      };
+      effects.push({ type: "damage", ...p, owner, born: time });
+    }
+}
+function playerHUD(owner) {
   const p = state.players[owner],
-    n = E.counts(state),
-    t = state.towers.filter((a) => a.owner === owner),
-    active = state.current === owner;
-  return `<div class="player-name"><span class="player-token"></span>${NAMES[owner]}${active ? " · 行动" : ""}</div><div class="hp" aria-label="生命 ${p.hp}">${"●".repeat(p.hp)}${"○".repeat(3 - p.hp)}</div><div class="area"><strong>${((n[owner] / 576) * 100).toFixed(1)}<span style="font-size:.55em">%</span></strong><small>${n[owner]} 格领地 / 576</small></div><div class="tower-stats">${[
-    "A",
-    "B",
-    "C",
-  ]
-    .map((slot) => {
-      const tower = t.find((a) => a.slot === slot);
-      return `<span><span class="tower-chip" style="opacity:${tower ? 1 : 0.35}">${slot}</span><span>${tower ? `${tower.stage * 2 + 1}×${tower.stage * 2 + 1} 保护` : "未部署"}</span></span>`;
-    })
-    .join(
-      "",
-    )}</div><span class="shield-label">${p.respawnShield ? "◇ 重生保护" : p.mobileShield ? "◌ 机动保护" : ""}</span>`;
+    c = E.counts(state),
+    n = state.towers.filter((t) => t.owner === owner).length;
+  return `<strong>${NAMES[owner]} <span>${p.hp}/10 HP</span></strong><div class="hp-bar" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < p.hp ? "" : "empty"}"></i>`).join("")}</div><div class="stats">${((100 * c[owner]) / state.cells.length).toFixed(1)}% · □ ${n}/5</div>`;
+}
+const button = (action, label, reason = "", cls = "") =>
+  `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}</button>`;
+function drawStack() {
+  const stack = $("stack");
+  stack.hidden = !menuLevel;
+  if (!menuLevel) return;
+  if (menuLevel === "root")
+    stack.innerHTML =
+      button(
+        "move",
+        state.moveAvailable ? "移动" : "移动 · 已完成",
+        state.moveAvailable ? "" : "本回合移动已用完",
+      ) +
+      button(
+        "action",
+        state.actionAvailable ? "行动" : "行动 · 已完成",
+        state.actionAvailable ? "" : "本回合行动已用完",
+      ) +
+      button("end", "结束回合") +
+      button("close-stack", "收起", "", "back");
+  else if (menuLevel === "move")
+    stack.innerHTML =
+      button("move-aim", "弹射移动") +
+      button("skip-move", "原地不动") +
+      button("root", "返回", "", "back");
+  else if (menuLevel === "action")
+    stack.innerHTML =
+      button("missile", "发射飞弹") +
+      button(
+        "tower",
+        state.towers.filter((t) => t.owner === state.current).length === 5
+          ? "重部署防御塔"
+          : "建立防御塔",
+        E.towerReason(state),
+      ) +
+      button(
+        "dismantle",
+        "拆除防御塔",
+        E.nearbyTowers(state).length ? "" : "需要位于敌方防御塔控制区",
+      ) +
+      button("skip-action", "跳过行动") +
+      button("root", "返回", "", "back");
+  else if (menuLevel === "confirm-build")
+    stack.innerHTML =
+      "<p>在当前位置建立防御塔？</p>" +
+      button("confirm-build", "确认建立") +
+      button("action", "返回", "", "back");
+  else if (menuLevel === "redeploy" || menuLevel === "dismantle-select")
+    stack.innerHTML =
+      "<p>点击战场上标记的防御塔</p>" + button("action", "返回", "", "back");
+  else if (
+    menuLevel === "confirm-redeploy" ||
+    menuLevel === "confirm-dismantle"
+  )
+    stack.innerHTML =
+      `<p>${menuLevel === "confirm-redeploy" ? "重新部署" : "拆除"} ${chosenTower?.slot} 塔？</p>` +
+      button(
+        menuLevel === "confirm-redeploy"
+          ? "confirm-redeploy"
+          : "confirm-dismantle",
+        "确认",
+      ) +
+      button(
+        menuLevel === "confirm-redeploy" ? "redeploy" : "dismantle-select",
+        "返回",
+        "",
+        "back",
+      );
 }
 function update() {
-  document.documentElement.style.setProperty(
-    "--accent",
-    state.current === 1 ? "var(--red)" : "var(--blue)",
-  );
-  for (const owner of [1, 2]) {
-    const node = $(owner === 1 ? "red-card" : "blue-card");
-    node.innerHTML = card(owner);
-    node.classList.toggle("active", owner === state.current);
-    node.classList.toggle("mine", owner === state.current);
-    node.classList.toggle("theirs", owner !== state.current);
-  }
-  const n = E.counts(state);
+  const c = state.current,
+    aiming = state.phase.includes("AIM"),
+    flying = state.phase.includes("FLYING");
+  $("game").classList.toggle("aiming", aiming);
+  $("game").classList.toggle("flying", flying);
+  $("round").textContent =
+    `${state.overtime ? "加时" : "ROUND " + state.round + " / " + state.maxRounds} · ${NAMES[c]}`;
   for (const [id, owner] of [
-    ["red-meter", 1],
-    ["neutral-meter", 0],
-    ["blue-meter", 2],
-  ])
-    $(id).style.width = `${(n[owner] / 576) * 100}%`;
-  $("round").textContent = state.overtime
-    ? "加时 · 1 轮"
-    : `ROUND ${String(state.round).padStart(2, "0")} / ${state.maxRounds}`;
-  $("mode").textContent =
-    state.maxRounds === 10
-      ? "快速对局"
-      : state.maxRounds === 18
-        ? "长局"
-        : "标准对局";
-  $("turn-badge").textContent = NAMES[state.current];
-  $("latest-event").textContent = state.events.at(-1)?.text || "";
-  let title = "",
-    hint = "",
-    actions = "";
-  const phase = state.phase;
-  $("ammo").innerHTML = ["MISSILE_AIM", "MISSILE_FLYING"].includes(phase)
-    ? `<span aria-label="剩余 ${state.missilesRemaining} 发">${Array.from({ length: 3 }, (_, i) => `<i class="ammo-dot ${i >= state.missilesRemaining ? "spent" : ""}"></i>`).join("")}</span>`
-    : "";
-  $("fine-aim").hidden = phase !== "MISSILE_AIM";
-  if (phase === "ROLE_ACTION") {
-    title = "① 角色行动";
-    hint = "点击或拖至横、竖、斜线目标格；每回合一次行动";
-    actions = button("留在原位", "stay", { primary: true });
-    const foe = state.players[E.enemy(state.current)];
-    if (E.adjacent(state.players[state.current].pos, foe.pos))
-      actions += button(
-        foe.respawnShield || foe.mobileShield ? "对方受保护" : "近战 −1 HP",
-        "melee",
-        { disabled: !E.canMelee(state) },
-      );
-    for (const t of E.nearbyTowers(state))
-      actions += button(`拆塔 ${t.slot}`, `dismantle-${t.slot}`);
+    ["current", c],
+    ["opponent", E.enemy(c)],
+  ]) {
+    $(id).innerHTML = playerHUD(owner);
+    $(id).style.setProperty("--team", TEAM[owner]);
   }
-  if (phase === "TACTICAL_CHOICE") {
-    title = "② 战术选择";
-    hint = "选择飞弹或脚下建塔；本回合只能使用其中一种";
-    actions =
-      button("飞弹 ×3", "missiles", { primary: true }) +
-      button("脚下建塔", "tower", { disabled: !!E.towerReason(state) });
-    if (state.undo) actions += button("撤销角色行动", "undo", { quiet: true });
-    if (E.towerReason(state)) hint = E.towerReason(state) + " · 可选择飞弹";
-  }
-  if (phase === "MISSILE_AIM") {
-    title = state.relay ? `塔 ${state.relay.slot} · 中继发射` : "② 飞弹瞄准";
-    hint = state.relay
-      ? "继续同一发 · 从塔中心向后拉，再次松手发射"
-      : "按住发射点反向拖拽，松开发射；也可展开精细瞄准";
-    if (state.shotOpen)
-      actions = button("放弃本弹", "abandon", { quiet: true });
-    else {
-      actions = button(
-        state.missilesRemaining === 3 ? "跳过战术" : "结束战术",
-        "finish",
-        { primary: true },
-      );
-      if (state.missilesRemaining === 3)
-        actions += button("改为建塔", "tower", {
-          disabled: !!E.towerReason(state),
-        });
-      if (state.undo)
-        actions += button("撤销角色行动", "undo", { quiet: true });
-    }
-  }
-  if (phase === "MISSILE_FLYING") {
-    title = "飞弹飞行中";
-    hint = "墙和敌塔反弹 · 己塔捕获 · 落地染色 3×3";
-    actions = button("飞行中…", "none", { disabled: true });
-  }
-  if (phase === "TURN_END") {
-    title = "本回合完成";
-    hint = desktop
-      ? "结束回合后切换另一方"
-      : "结束回合后交接设备，战场将旋转 180°";
-    actions = button("结束回合", "end", { primary: true });
-  }
-  if (phase === "HANDOFF") {
-    title = "交接回合";
-    hint = "等待下一位玩家开始";
-    actions = button("等待交接", "none", { disabled: true });
-  }
-  if (phase === "GAME_OVER") {
-    title = "对局结束";
-    hint = "领地、生命与防御塔已完成结算";
-    actions =
-      button("再来一局", "rematch", { primary: true }) +
-      button("返回首页", "home");
-  }
-  $("phase-title").textContent = title;
-  $("instruction").textContent = hint;
-  $("actions").innerHTML = actions;
-  if (phase === "GAME_OVER" && !resultShown) {
-    resultShown = true;
-    result();
-  }
+  $("charge").hidden = !state.phase.startsWith("MISSILE");
+  $("charge").textContent =
+    `${"◆".repeat(state.charge)}${"◇".repeat(3 - state.charge)}  ${["0", "I", "II", "III"][state.charge]}`;
+  let hint = selection
+    ? "点击战场上的塔"
+    : aiming
+      ? `${state.phase.includes("RELAY") ? "中继 · " : ""}从发光处向后拖拽${aim ? " · " + Math.round(aim.power * 100) + "%" : ""}`
+      : flying
+        ? ""
+        : !state.moveAvailable && !state.actionAvailable
+          ? "本回合已完成"
+          : "";
+  $("hint").textContent = hint;
+  const fab = $("fab");
+  fab.textContent = aiming
+    ? state.committed
+      ? "停止"
+      : "取消"
+    : flying
+      ? "飞行中"
+      : !state.moveAvailable && !state.actionAvailable
+        ? "结束回合"
+        : "操作";
+  fab.disabled = flying || rotationStart !== null || !!overlayKind;
+  fab.className = `fab ${c === 1 ? "red" : "blue"} ${flying ? "busy" : ""}`;
+  $("precision").hidden = !aiming;
+  drawStack();
+  if (state.winner && overlayKind !== "result") result();
 }
-function openModal(kind, html) {
+function panel(kind, content) {
+  overlayKind = kind;
+  $("overlay").hidden = false;
+  $("panel").innerHTML = content;
+  menuLevel = null;
+  selection = null;
   pointer = null;
   aim = null;
-  modal.dataset.kind = kind;
-  $("modal-content").innerHTML = html;
-  if (!modal.open) modal.showModal();
-}
-function closeModal() {
-  modal.close();
-  modal.dataset.kind = "";
-  last = performance.now();
-  accumulator = 0;
-  canvas.focus({ preventScroll: true });
-}
-function start() {
-  resultShown = false;
-  state = E.createGame(selectedRounds);
-  viewOwner = 1;
-  rotation = 0;
-  rotating = false;
-  aim = null;
-  cursor = null;
-  effects = [];
-  closeModal();
   update();
-  requestAnimationFrame(fit);
+  const first = $("panel").querySelector("button");
+  first?.focus();
+}
+function closePanel() {
+  overlayKind = null;
+  $("overlay").hidden = true;
+  update();
 }
 function home() {
-  openModal(
+  panel(
     "home",
-    `<div class="start-symbols" aria-hidden="true"><span class="symbol-role"></span><span class="symbol-projectile"></span><span class="symbol-tower"></span></div><span class="eyebrow">LOCAL TWO-PLAYER · 本地双人</span><h1>弹射领地战争</h1><p>移动角色，建立三座中继塔。<br>让每一发反弹，成为你的领地。</p><div class="mode-options">${[10, 14, 18].map((n, i) => `<button data-modal="round-${n}" class="${selectedRounds === n ? "selected" : ""}">${["快速", "标准", "长局"][i]}<small>${n} 轮</small></button>`).join("")}</div><button class="primary full" data-modal="start">开始双人对局</button><button class="secondary full" data-modal="rules">先看规则</button><p style="font-size:12px;text-align:center">两人共用同一台设备 · 红方先手<br>${VERSION}</p>`,
+    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">RICOCHET DOMINION</p><h1 id="panel-title">弹射领地战争</h1><p>两个人，一台设备。弹射抢地，连塔蓄能，切断对方的补给。</p><div class="row">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${{ 10: "快速", 14: "标准", 18: "长局" }[n]}<br>${n} 轮</button>`).join("")}</div><button class="primary" data-panel="start">开始双人对局</button><div class="row"><button data-panel="rules">玩法规则</button><button data-panel="sound">声音 ${sound ? "开" : "关"}</button></div><p class="version">v${VERSION} · 本地双人 PvP</p>`,
   );
 }
+function start() {
+  state = E.createGame(
+    selectedRounds,
+    profileFor(innerWidth, innerHeight, touch()),
+  );
+  viewOwner = 1;
+  rotationStart = null;
+  rotation = 0;
+  effects = [];
+  transitions.clear();
+  accumulator = 0;
+  closePanel();
+  fit();
+  toast("红方先行 · 移动与行动可自由排序");
+}
 function rules() {
-  const back = modal.dataset.kind === "home" ? "home" : "close";
-  rulesReturn = back;
-  openModal(
+  rulesReturn = overlayKind || "game";
+  panel(
     "rules",
-    `<span class="eyebrow">HOW TO PLAY</span><h2>两分钟，开始第一局</h2><div class="rule-list"><div><strong>1 · 先行动角色，再选择战术</strong><p>角色沿横、竖、斜线移动，距离不限。点击目标或拖动角色；也可以留在原位。</p></div><div><strong>2 · 飞弹：反向拖拽，松开发射</strong><p>每回合最多三发，落点染色 3×3。墙与敌塔会反弹；己塔捕获后可重新瞄准，无限中继仍算同一发。精细瞄准可用方向、力度滑块。</p></div><div><strong>3 · 防御塔：只建在脚下</strong><p>选择建塔就不发飞弹。塔在自己下两次回合开始时从 1×1 长到 3×3、5×5。最多三座，可以选择旧塔重部署。保护区无法被敌方染色，颜色在拆塔后保留。</p></div><div><strong>4 · 角色负责近战与拆塔</strong><p>回合开始就在相邻八格，才能近战或拆塔。己塔可穿过，敌塔会挡路。移动后获得近战保护，仍可被飞弹伤害。主动近战或拆塔会解除自己的重生保护。</p></div><div><strong>5 · 每人三点生命</strong><p>近战或飞弹命中扣 1 HP，重生保护持续到自己下回合结束。每个敌方战术阶段最多受到一次飞弹伤害。敌角色本体碰到飞弹也会触发爆炸。</p></div><div><strong>6 · 三条胜利路线</strong><p>对方生命归零立即获胜；完整一轮后控制 80% 领地获胜；最终按领地、生命、塔数量依次比较。同分加时一轮，再相同则平局。</p></div><div><strong>手机交接 / 电脑横屏</strong><p>手机换回合时交接设备并旋转战场；电脑红左蓝右固定。布局切换保留对局。角色移动后可以撤销，发弹或建塔后锁定。</p></div><div><strong>键盘辅助</strong><p>聚焦战场后用方向键调整目标、Enter 移动；Q/W/E/A/D/Z/X/C 对应八方向。Esc 取消瞄准。所有操作均可触控完成。</p></div></div><button class="primary full" data-modal="${back}">知道了</button>`,
+    `<p class="eyebrow">HOW TO PLAY</p><h2 id="panel-title">先接通，再扩张</h2><p><b>每回合：</b>1 次移动 + 1 次行动，顺序自由。行动可选择飞弹、建塔／重部署、拆塔。可跳过或直接结束回合。</p><p><b>弹射：</b>从发光角色或塔中心向后拖拽，松手发射。碰墙、敌塔和敌人反弹；己塔可捕获后重新瞄准。移动不染色、不扣血。</p><p><b>领地：</b>颜色通过上下左右接到己塔才稳定；断粮变为临时领地，颜色保留。在敌方临时领地建塔后，对方有完整一回合抢救，下一次你的回合开始时吞并仍未接通的原区域。</p><p><b>五塔网络：</b>出生塔计入 5 座上限。新塔每次自己的回合开始成长：1×1 → 3×3 → 5×5。保护地不能被普通飞弹染色。进入敌塔实际控制区即可用行动拆塔。</p><p><b>飞弹蓄能：</b>同一座己塔每回合仅捕获飞弹一次，已用塔只反弹。I 携带敌人；II 爆炸 5×5；III 击毁敌塔。普通爆炸为 3×3。角色中继与飞弹中继独立。</p><p><b>HP：</b>10 点。飞弹碰人瞬间，目标脚下为其自己颜色才扣 1 点。携带时每次从其他颜色重新进入目标颜色再扣 1 点；同一连续色区不重复扣。塔只保护地，不保护人。</p><p><b>胜负：</b>HP 归零立即结束；整轮结束占地达到 80% 获胜；最后一轮比较领地、HP、塔数。完全同分加时一轮，比净领地变化，再相同为平局。</p><p>发射后不可撤销。中继时「停止」会在当前塔位置结束移动／引爆飞弹。触屏换回合旋转战场，电脑红左蓝右。</p><div class="legend"><span><i></i>稳定</span><span><i class="temporary"></i>临时</span><span><i class="protected"></i>保护</span><span><i class="pending"></i>待吞并</span></div><button class="primary" data-panel="close">明白了</button>`,
   );
 }
 function result() {
   const w = state.winner,
     c = E.counts(state),
-    reason = {
-      hp: "对方生命归零",
-      territory: "领地达到 80%",
-      score: "最终回合结算",
-      overtime: w.player ? "加时领地增量领先" : "加时后仍同分",
-    };
-  openModal(
+    label = {
+      hp: "HP 胜利",
+      territory: "80% 领地胜利",
+      score: "终局计分",
+      overtime: "加时结果",
+    }[w.reason];
+  panel(
     "result",
-    `<span class="eyebrow">MATCH COMPLETE</span><h1 style="color:${w.player === 1 ? "var(--red)" : w.player === 2 ? "var(--blue)" : "#e7edf1"}">${w.player ? NAMES[w.player] + "获胜" : "势均力敌 · 平局"}</h1><p>${reason[w.reason]}</p><div class="result-scores">${[1, 2].map((p) => `<div><span style="color:${p === 1 ? "var(--red)" : "var(--blue)"}">${NAMES[p]}</span><strong>${((c[p] / 576) * 100).toFixed(1)}%</strong><span>${c[p]} 格 · ${state.players[p].hp} HP · ${state.towers.filter((t) => t.owner === p).length} 塔</span></div>`).join("")}</div><div class="modal-actions"><button class="primary" data-modal="start">再来一局</button><button data-modal="home">返回首页</button></div>`,
+    `<p class="eyebrow">${label}</p><h2 id="panel-title">${w.player ? NAMES[w.player] + "获胜" : "双方平局"}</h2>${[1, 2].map((o) => `<p style="color:${TEAM[o]}">${NAMES[o]} · ${((100 * c[o]) / state.cells.length).toFixed(1)}% · ${state.players[o].hp} HP · ${state.towers.filter((t) => t.owner === o).length} 塔</p>`).join("")}<button class="primary" data-panel="start">再来一局</button><div class="row"><button data-panel="home">返回首页</button></div>`,
   );
 }
-function redeploy(selected = null) {
-  const own = state.towers.filter((t) => t.owner === state.current);
-  openModal(
-    "redeploy",
-    `<span class="eyebrow">REDEPLOY TOWER</span><h2>将哪一座塔移到脚下？</h2><p>旧塔区域保留颜色、解除保护；新塔从 1×1 重新成长。</p><div class="redeploy-grid">${own.map((t) => `<button data-modal="select-${t.slot}" class="${selected === t.slot ? "selected" : ""}"><span>塔 ${t.slot} · ${t.stage * 2 + 1}×${t.stage * 2 + 1}</span><span>${t.protected.length} 格保护</span></button>`).join("")}</div><div class="modal-actions"><button data-modal="close">取消</button><button class="primary" data-modal="deploy-${selected || ""}" ${selected ? "" : "disabled"}>确认重部署</button></div>`,
-  );
-}
-function tower() {
-  if (E.towerReason(state)) {
-    toast(E.towerReason(state));
-    return;
-  }
-  if (state.towers.filter((t) => t.owner === state.current).length === 3)
-    redeploy();
-  else E.buildTower(state);
-}
-function changeTurn() {
+function end() {
   if (!E.endTurn(state)) return;
   if (state.winner) {
     update();
     return;
   }
-  if (desktop) {
-    beginWithGrowth();
-    viewOwner = state.current;
-    update();
-    return;
-  }
-  openModal(
+  panel(
     "handoff",
-    `<div class="handoff"><div class="disc"></div><span class="eyebrow">PASS THE DEVICE</span><h1>交给${NAMES[state.current]}</h1><p>双方每次行动后交接，按钮保持正向。<br>战场将在开始后旋转 180°。</p><button class="primary full" data-modal="ready">开始我的回合</button></div>`,
+    `<p class="eyebrow">PASS DEVICE</p><h2 id="panel-title" style="color:${TEAM[state.current]}">交给 ${state.current === 1 ? "RED" : "BLUE"}</h2><p>准备好后开始你的回合。</p><button class="primary" data-panel="ready">READY · 准备好了</button>`,
   );
-  update();
-}
-function beginWithGrowth() {
-  const stages = new Map(
-    state.towers.map((t) => [`${t.owner}-${t.slot}`, t.stage]),
-  );
-  E.beginTurn(state);
-  for (const t of state.towers)
-    if (t.stage !== stages.get(`${t.owner}-${t.slot}`))
-      effects.push({
-        type: "growth",
-        x: t.pos.x + 0.5,
-        y: t.pos.y + 0.5,
-        owner: t.owner,
-        stage: t.stage,
-        born: performance.now(),
-      });
 }
 function ready() {
-  closeModal();
-  beginWithGrowth();
-  if (desktop || reduced.matches) {
-    viewOwner = state.current;
-    rotating = false;
-  } else {
-    rotating = true;
+  const before = visualSnapshot();
+  E.beginTurn(state);
+  visualChanges(before);
+  closePanel();
+  if (state.profile !== "desktop" && !reduced.matches) {
     rotationStart = performance.now();
     rotation = 0;
-  }
+  } else viewOwner = state.current;
   update();
 }
 function doAction(action) {
-  if (modal.open || rotating || document.hidden) return;
-  cursor = null;
+  if (overlayKind || rotationStart !== null) return;
+  const before = visualSnapshot();
+  selection = null;
+  chosenTower = action.startsWith("confirm-") ? chosenTower : null;
   aim = null;
   pointer = null;
-  if (action === "stay") E.stay(state);
-  else if (action === "melee") E.melee(state);
-  else if (action.startsWith("dismantle-"))
-    E.dismantle(state, action.slice(-1));
-  else if (action === "missiles") E.chooseMissiles(state);
-  else if (action === "tower") tower();
-  else if (action === "undo") E.undoRole(state);
-  else if (action === "finish") E.finishTactic(state);
-  else if (action === "abandon") abandon(state);
-  else if (action === "end") changeTurn();
-  else if (action === "rematch") start();
-  else if (action === "home") home();
-  tone(340);
+  if (["root", "move", "action"].includes(action)) {
+    menuLevel = action === "root" ? "root" : action;
+  } else if (action === "close-stack") menuLevel = null;
+  else if (action === "move-aim" || action === "missile") {
+    E.chooseAim(state, action === "move-aim" ? "move" : "missile");
+    menuLevel = null;
+  } else if (action === "skip-move" || action === "skip-action") {
+    E.skip(state, action === "skip-move" ? "move" : "action");
+    menuLevel = null;
+  } else if (action === "end") {
+    menuLevel = null;
+    end();
+  } else if (action === "tower") {
+    if (E.towerReason(state)) {
+      toast(E.towerReason(state));
+      return;
+    }
+    if (state.towers.filter((t) => t.owner === state.current).length === 5) {
+      menuLevel = "redeploy";
+      selection = "redeploy";
+    } else menuLevel = "confirm-build";
+  } else if (action === "redeploy" || action === "dismantle-select") {
+    menuLevel = action;
+    selection = action === "redeploy" ? "redeploy" : "dismantle";
+  } else if (action === "dismantle") {
+    menuLevel = "dismantle-select";
+    selection = "dismantle";
+  } else if (action === "confirm-build") {
+    E.buildTower(state);
+    menuLevel = null;
+  } else if (action === "confirm-redeploy") {
+    E.buildTower(state, chosenTower?.slot);
+    menuLevel = null;
+  } else if (action === "confirm-dismantle") {
+    E.dismantle(state, chosenTower?.id);
+    menuLevel = null;
+  }
+  visualChanges(before);
+  tone();
   update();
 }
-$("actions").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-action]");
-  if (b && !b.disabled) doAction(b.dataset.action);
+$("stack").addEventListener("click", (event) => {
+  const b = event.target.closest("[data-action]");
+  if (!b) return;
+  if (b.dataset.reason) {
+    toast(b.dataset.reason);
+    return;
+  }
+  doAction(b.dataset.action);
 });
-$("modal-content").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-modal]");
-  if (!b || b.disabled) return;
-  const action = b.dataset.modal;
+$("fab").onclick = () => {
+  if (state.phase.includes("AIM")) {
+    const before = visualSnapshot();
+    P.cancelAim(state);
+    visualChanges(before);
+    aim = null;
+    pointer = null;
+    menuLevel = null;
+  } else if (state.phase === "IDLE") {
+    if (!state.moveAvailable && !state.actionAvailable) {
+      end();
+      return;
+    }
+    menuLevel = menuLevel ? null : "root";
+    selection = null;
+  }
+  update();
+};
+$("panel").addEventListener("click", (event) => {
+  const b = event.target.closest("[data-panel]");
+  if (!b) return;
+  const action = b.dataset.panel;
   if (action === "start") start();
   else if (action === "home") home();
   else if (action === "rules") rules();
-  else if (action === "close") closeModal();
   else if (action === "ready") ready();
-  else if (action === "restart-confirm")
-    openModal(
-      "confirm",
-      `<h2>重新开始这局？</h2><p>当前对局进度将清空。</p><div class="modal-actions"><button data-modal="close">继续对局</button><button class="primary" data-modal="start">重新开始</button></div>`,
-    );
-  else if (action.startsWith("round-")) {
-    selectedRounds = Number(action.split("-")[1]);
+  else if (action === "close") {
+    if (rulesReturn === "home") home();
+    else closePanel();
+  } else if (action.startsWith("round-")) {
+    selectedRounds = Number(action.slice(6));
     home();
-  } else if (action.startsWith("select-")) redeploy(action.slice(-1));
-  else if (action.startsWith("deploy-")) {
-    E.buildTower(state, action.slice(-1));
-    closeModal();
-    update();
-  }
-});
-modal.addEventListener("cancel", (e) => {
-  if (["home", "handoff", "result"].includes(modal.dataset.kind)) {
-    e.preventDefault();
-    return;
-  }
-  e.preventDefault();
-  if (modal.dataset.kind === "rules" && rulesReturn === "home") home();
-  else closeModal();
+  } else if (action === "sound") {
+    sound = !sound;
+    try {
+      localStorage.setItem("rd-sound", sound ? "on" : "off");
+    } catch {}
+    if (overlayKind === "home") home();
+    else menuPanel();
+    tone();
+  } else if (action === "restart")
+    panel(
+      "confirm",
+      `<h2 id="panel-title">重新开始？</h2><p>当前对局将清空。</p><button class="primary" data-panel="start">确认重新开始</button><div class="row"><button data-panel="close">继续对局</button></div>`,
+    );
 });
 $("help").onclick = rules;
-$("menu").onclick = () =>
-  openModal(
+function menuPanel() {
+  rulesReturn = "game";
+  panel(
     "menu",
-    `<h2>对局菜单</h2><p>${NAMES[state.current]}行动 · 第 ${state.round} 轮</p><button class="primary full" data-modal="close">继续对局</button><button class="full" data-modal="restart-confirm">重新开始</button><button class="secondary full" data-modal="rules">查看规则</button>`,
+    `<h2 id="panel-title">对局设置</h2><p>第 ${state.round} 轮 · ${NAMES[state.current]}</p><button class="primary" data-panel="close">继续对局</button><div class="row"><button data-panel="sound">声音 ${sound ? "开" : "关"}</button><button data-panel="restart">重新开始</button></div><p class="version">v${VERSION}</p>`,
   );
-$("sound").onclick = () => {
-  sound = !sound;
-  try {
-    localStorage.setItem("rd-sound", sound ? "on" : "off");
-  } catch {}
-  syncSound();
-  tone(520);
-};
-function viewPoint(event) {
-  const rect = canvas.getBoundingClientRect(),
-    W = desktop ? 32 : 18;
+}
+$("menu").onclick = menuPanel;
+function worldPoint(event) {
+  const r = canvas.getBoundingClientRect();
+  return fromView(
+    {
+      x: ((event.clientX - r.left) / r.width) * state.width,
+      y: ((event.clientY - r.top) / r.height) * state.height,
+    },
+    state,
+    viewOwner,
+  );
+}
+function pointerAim(p) {
+  const o = P.origin(state),
+    tile = canvas.clientWidth / state.width,
+    maxPull = Math.min(130, innerWidth * 0.35);
   return {
-    x: ((event.clientX - rect.left) / rect.width) * W,
-    y: ((event.clientY - rect.top) / rect.width) * W,
+    x: o.x - p.x,
+    y: o.y - p.y,
+    power: Math.min(1, (Math.hypot(o.x - p.x, o.y - p.y) * tile) / maxPull),
   };
 }
-function launchPoint() {
-  const p = state.relay?.pos || state.players[state.current].pos;
-  return toView({ x: p.x + 0.5, y: p.y + 0.5 }, desktop, viewOwner);
-}
-function snapTarget(v) {
-  const p = fromView(v, desktop, viewOwner),
-    moves = E.legalMoves(state);
-  let best = null,
-    d = 0.95;
-  for (const a of moves) {
-    const distance = Math.hypot(p.x - a.x - 0.5, p.y - a.y - 0.5);
-    if (distance < d) {
-      best = a;
-      d = distance;
-    }
-  }
-  return best;
-}
-function aimFromPointer(v) {
-  const origin = launchPoint(),
-    dx = origin.x - v.x,
-    dy = origin.y - v.y,
-    tile = canvas.clientWidth / (desktop ? 32 : 18),
-    maxPull = Math.min(130, canvas.clientWidth * 0.35),
-    power = Math.min(1, (Math.hypot(dx, dy) * tile) / maxPull);
-  return { dx, dy, power };
-}
 function fire(a) {
-  const zero = fromView({ x: 0, y: 0 }, desktop, viewOwner),
-    d = fromView({ x: a.dx, y: a.dy }, desktop, viewOwner),
-    ok = launch(state, { x: d.x - zero.x, y: d.y - zero.y }, a.power);
-  if (ok) {
-    tone(650, 0.12);
-    navigator.vibrate?.(12);
+  if (P.launch(state, a, a.power)) {
+    tone(650);
+    menuLevel = null;
+    selection = null;
   } else toast("向后拉远一点再松手");
   aim = null;
+  pointer = null;
   update();
 }
-canvas.addEventListener("pointerdown", (e) => {
-  if (
-    modal.open ||
-    rotating ||
-    !["ROLE_ACTION", "MISSILE_AIM"].includes(state.phase) ||
-    e.button !== 0 ||
-    pointer
-  )
+canvas.addEventListener("pointerdown", (event) => {
+  if (overlayKind || rotationStart !== null || event.button !== 0 || pointer)
     return;
-  const v = viewPoint(e);
-  if (state.phase === "MISSILE_AIM") {
-    const o = launchPoint(),
-      tile = canvas.clientWidth / (desktop ? 32 : 18);
-    if (Math.hypot(v.x - o.x, v.y - o.y) * tile > Math.max(22, tile * 0.85)) {
-      toast("从发光的角色或塔中心向后拉");
-      return;
+  const p = worldPoint(event);
+  if (selection) {
+    const valid =
+      selection === "redeploy"
+        ? state.towers.filter((t) => t.owner === state.current)
+        : E.nearbyTowers(state);
+    const t = valid.find(
+      (t) =>
+        (Math.hypot(t.pos.x + 0.5 - p.x, t.pos.y + 0.5 - p.y) *
+          canvas.clientWidth) /
+          state.width <
+        Math.max(22, (canvas.clientWidth / state.width) * 0.8),
+    );
+    if (t) {
+      chosenTower = t;
+      menuLevel =
+        selection === "redeploy" ? "confirm-redeploy" : "confirm-dismantle";
+      selection = null;
+      update();
     }
-    pointer = { id: e.pointerId, type: "aim" };
-    aim = aimFromPointer(v);
-  } else {
-    pointer = { id: e.pointerId, type: "move" };
-    cursor = snapTarget(v);
-  }
-  canvas.setPointerCapture(e.pointerId);
-  e.preventDefault();
-});
-canvas.addEventListener("pointermove", (e) => {
-  if (!pointer || pointer.id !== e.pointerId) return;
-  const v = viewPoint(e);
-  if (pointer.type === "aim") aim = aimFromPointer(v);
-  else cursor = snapTarget(v);
-});
-canvas.addEventListener("pointerup", (e) => {
-  if (!pointer || pointer.id !== e.pointerId) return;
-  const type = pointer.type;
-  pointer = null;
-  if (canvas.hasPointerCapture(e.pointerId))
-    canvas.releasePointerCapture(e.pointerId);
-  if (modal.open || rotating) {
-    aim = null;
-    cursor = null;
     return;
   }
-  if (type === "aim" && aim) fire(aim);
-  else if (cursor) {
-    E.moveRole(state, cursor);
-    cursor = null;
-    tone(300);
-    update();
-  } else {
-    const p = fromView(viewPoint(e), desktop, viewOwner),
-      own = state.players[state.current].pos;
-    if (Math.hypot(p.x - own.x - 0.5, p.y - own.y - 0.5) > 0.7) {
-      toast("只能沿横、竖或斜线移动，不能穿过敌人");
-      navigator.vibrate?.(15);
-    }
-  }
-});
-canvas.addEventListener("pointercancel", () => {
-  pointer = null;
-  aim = null;
-  cursor = null;
-});
-canvas.addEventListener("lostpointercapture", () => {
-  pointer = null;
-  aim = null;
-});
-canvas.addEventListener("keydown", (e) => {
-  if (modal.open || rotating || state.phase !== "ROLE_ACTION") return;
-  if (e.key === "Enter" && cursor) {
-    E.moveRole(state, cursor);
-    cursor = null;
-    update();
-    e.preventDefault();
+  if (!state.phase.includes("AIM")) return;
+  const o = P.origin(state),
+    tile = canvas.clientWidth / state.width;
+  if (Math.hypot(p.x - o.x, p.y - o.y) * tile > Math.max(24, tile * 0.9)) {
+    toast("从发光的角色或塔中心向后拉");
     return;
   }
-  const dirs = {
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      q: [-1, -1],
-      w: [0, -1],
-      e: [1, -1],
-      a: [-1, 0],
-      d: [1, 0],
-      z: [-1, 1],
-      x: [0, 1],
-      c: [1, 1],
-    },
-    dir = dirs[e.key];
-  if (!dir) return;
-  e.preventDefault();
-  const p = cursor || state.players[state.current].pos,
-    v = toView({ x: p.x + 0.5, y: p.y + 0.5 }, desktop, viewOwner),
-    n = fromView({ x: v.x + dir[0], y: v.y + dir[1] }, desktop, viewOwner),
-    target = { x: Math.floor(n.x), y: Math.floor(n.y) };
-  if (E.legalMoves(state).some((a) => E.same(a, target))) cursor = target;
+  pointer = event.pointerId;
+  aim = pointerAim(p);
+  canvas.setPointerCapture(event.pointerId);
+  event.preventDefault();
+  update();
 });
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !modal.open) {
+canvas.addEventListener("pointermove", (event) => {
+  if (pointer !== event.pointerId) return;
+  aim = pointerAim(worldPoint(event));
+  update();
+});
+canvas.addEventListener("pointerup", (event) => {
+  if (pointer !== event.pointerId) return;
+  const a = aim;
+  pointer = null;
+  if (canvas.hasPointerCapture(event.pointerId))
+    canvas.releasePointerCapture(event.pointerId);
+  if (!overlayKind && rotationStart === null && a) fire(a);
+});
+for (const name of ["pointercancel", "lostpointercapture"])
+  canvas.addEventListener(name, () => {
     pointer = null;
     aim = null;
-    cursor = null;
-  }
-});
-function fineAim() {
+    update();
+  });
+function preciseAim() {
   const angle = (Number($("angle").value) * Math.PI) / 180,
-    power = Number($("power").value) / 100;
-  aim = { dx: Math.sin(angle), dy: -Math.cos(angle), power };
-  $("angle-value").textContent = `${$("angle").value}°`;
-  $("power-value").textContent = `${$("power").value}%`;
+    d = fromView({ x: Math.sin(angle), y: -Math.cos(angle) }, state, viewOwner),
+    zero = fromView({ x: 0, y: 0 }, state, viewOwner);
+  aim = {
+    x: d.x - zero.x,
+    y: d.y - zero.y,
+    power: Number($("power").value) / 100,
+  };
+  $("angle-value").textContent = $("angle").value + "°";
+  $("power-value").textContent = $("power").value + "%";
+  update();
 }
-$("angle").oninput = fineAim;
-$("power").oninput = fineAim;
+$("angle").oninput = preciseAim;
+$("power").oninput = preciseAim;
 $("precise-fire").onclick = () => {
-  if (modal.open || rotating) return;
-  fineAim();
+  if (overlayKind || rotationStart !== null) return;
+  preciseAim();
   fire(aim);
 };
-$("fine-aim").addEventListener("toggle", () => requestAnimationFrame(fit));
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (overlayKind === "rules") {
+    if (rulesReturn === "home") home();
+    else closePanel();
+  } else if (
+    overlayKind &&
+    !["home", "handoff", "result"].includes(overlayKind)
+  )
+    closePanel();
+  else if (!overlayKind) {
+    if (state.phase.includes("AIM")) P.cancelAim(state);
+    menuLevel = null;
+    selection = null;
+    aim = null;
+    pointer = null;
+    update();
+  }
+});
 function frame(time) {
-  const elapsed = Math.min(0.05, (time - last) / 1000 || 0);
+  const dt = Math.min(0.05, Math.max(0, (time - last) / 1000 || 0));
   last = time;
-  if (rotating) {
-    const t = Math.min(1, (time - rotationStart) / CONFIG.rotationMs);
-    rotation = Math.PI * (t * t * (3 - 2 * t));
-    if (t >= 1 || desktop) {
+  if (rotationStart !== null) {
+    const t = Math.min(
+      1,
+      Math.max(0, (time - rotationStart) / CONFIG.rotationMs),
+    );
+    rotation = Math.PI * t * t * (3 - 2 * t);
+    if (t >= 1) {
+      rotationStart = null;
       rotation = 0;
-      rotating = false;
       viewOwner = state.current;
+      update();
     }
   }
-  if (!document.hidden && !modal.open && !rotating) {
-    accumulator += elapsed;
+  if (!overlayKind && rotationStart === null && !document.hidden) {
+    accumulator += dt;
     const phase = state.phase;
+    const before = state.activeBody ? visualSnapshot() : null;
     while (accumulator >= CONFIG.physics.step) {
-      const before = [...state.cells];
-      const events = stepMissile(state, CONFIG.physics.step);
-      for (const e of events) {
-        effects.push({ ...e, born: time, before, owner: state.current });
-        tone(
-          e.type === "bounce" ? 210 : e.type === "capture" ? 540 : 130,
-          0.06,
+      const e = P.stepBody(state, CONFIG.physics.step);
+      if (e.length)
+        effects.push(
+          ...e.map((a) => ({ ...a, owner: state.current, born: time })),
         );
-      }
       accumulator -= CONFIG.physics.step;
     }
-    if (phase !== state.phase) update();
+    visualChanges(before, time);
+    if (phase !== state.phase || state.activeBody?.carried) update();
   } else accumulator = 0;
-  effects = effects.filter((e) => time - e.born < 500);
+  effects = effects.filter((e) => time - e.born < 480);
+  for (const [i, t] of transitions)
+    if (time - t.born > t.delay + t.duration) transitions.delete(i);
   render(canvas, state, {
-    desktop,
     owner: viewOwner,
     rotation,
     aim,
-    cursor,
+    select: selection,
     effects,
+    transitions,
     time,
   });
   requestAnimationFrame(frame);
 }
-document.addEventListener("visibilitychange", () => {
-  last = performance.now();
-  accumulator = 0;
-  pointer = null;
-  aim = null;
-});
-new ResizeObserver(() => {
-  fit();
-}).observe(canvas.parentElement);
+new ResizeObserver(fit).observe(canvas.parentElement);
 window.addEventListener("resize", () => {
   fit();
   update();
 });
-// Read-only WebMCP uses the same state shown on the board; unsupported browsers simply skip it.
-if (document.modelContext?.registerTool) {
+document.addEventListener("visibilitychange", () => {
+  accumulator = 0;
+  last = performance.now();
+  pointer = null;
+  aim = null;
+});
+if (document.modelContext?.registerTool)
   try {
     Promise.resolve(
       document.modelContext.registerTool({
         name: "read_match_state",
         title: "Read current match",
         description:
-          "Read the current local two-player match without making a move.",
+          "Read the visible local PvP match state without changing it.",
         inputSchema: {
           type: "object",
           properties: {},
@@ -647,29 +637,28 @@ if (document.modelContext?.registerTool) {
             Array.isArray(input) ||
             Object.keys(input).length
           )
-            throw new Error("Expected an empty object");
+            throw Error("Expected empty object");
           return {
             version: VERSION,
+            width: state.width,
+            height: state.height,
+            profile: state.profile,
             round: state.round,
-            current: NAMES[state.current],
+            current: state.current,
             phase: state.phase,
-            territory: E.counts(state),
+            moveAvailable: state.moveAvailable,
+            actionAvailable: state.actionAvailable,
+            charge: state.charge,
             players: structuredClone(state.players),
-            towers: state.towers.map(({ owner, slot, pos, stage }) => ({
-              owner,
-              slot,
-              pos,
-              stage,
-            })),
+            territory: E.counts(state),
+            towers: structuredClone(state.towers),
+            claims: structuredClone(state.claims),
             winner: state.winner,
           };
         },
       }),
     ).catch(() => {});
   } catch {}
-}
-syncSound();
-update();
 fit();
 home();
 requestAnimationFrame(frame);

@@ -1,14 +1,14 @@
-export function toView(p, desktop, owner) {
-  return desktop
-    ? { x: 32 - p.y, y: p.x }
-    : owner === 2
-      ? { x: 18 - p.x, y: 32 - p.y }
-      : { ...p };
+export const toView = (p, s, owner) =>
+  s.profile !== "desktop" && owner === 2
+    ? { x: s.width - p.x, y: s.height - p.y }
+    : { x: p.x, y: p.y };
+export const fromView = toView;
+export function camera(s, width, height) {
+  const tile = Math.min(width / s.width, height / s.height);
+  return { tile, width: s.width * tile, height: s.height * tile };
 }
-export function fromView(p, desktop, owner) {
-  return desktop
-    ? { x: p.y, y: 32 - p.x }
-    : owner === 2
-      ? { x: 18 - p.x, y: 32 - p.y }
-      : { ...p };
+export function profileFor(width, height, touch) {
+  if (!touch) return "desktop";
+  if (Math.min(width, height) < 600) return "phone";
+  return width > height ? "touch-landscape" : "tablet";
 }
