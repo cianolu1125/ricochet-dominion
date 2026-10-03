@@ -127,3 +127,37 @@ for (const [width, height, touch] of [
       await a.close();
     }
   });
+
+test('opponent HP is optional and precision controls are removed', async () => {
+  const a = await setup();
+  try {
+    a.click('[data-panel="start"]');
+    assert.equal(a.w.document.querySelector('#opponent').hidden, true);
+    a.click('#opponent-toggle');
+    assert.equal(a.w.document.querySelector('#opponent').hidden, false);
+    assert.match(a.w.document.querySelector('#opponent-info').textContent, /10\/10 HP/);
+    a.click('#opponent-close');
+    assert.equal(a.w.document.querySelector('#opponent').hidden, true);
+    assert.equal(a.w.document.querySelector('#precision'), null);
+    assert.equal(a.w.document.querySelector('#fab').closest('footer').id, 'toolbar');
+  } finally { await a.close(); }
+});
+for (const kind of ['move', 'missile'])
+  test(`${kind}: drag starts far from origin; tap spends nothing; release launches`, async () => {
+    const a = await setup();
+    try {
+      a.click('[data-panel="start"]');
+      a.click('#fab');
+      a.click(`[data-action="${kind === 'move' ? 'move' : 'action'}"]`);
+      a.click(`[data-action="${kind === 'move' ? 'move-aim' : 'missile'}"]`);
+      const event = (name, x, y) => a.canvas.dispatchEvent(new a.w.PointerEvent(name, { pointerId: 9, button: 0, clientX: x, clientY: y, bubbles: true }));
+      event('pointerdown', 180, 200);
+      event('pointerup', 180, 200);
+      assert.equal(a.read().phase, kind === 'move' ? 'MOVE_AIM' : 'MISSILE_AIM');
+      event('pointerdown', 180, 200);
+      event('pointermove', 180, 280);
+      event('pointerup', 180, 280);
+      assert.equal(a.read().phase, kind === 'move' ? 'MOVE_FLYING' : 'MISSILE_FLYING');
+      assert.equal(kind === 'move' ? a.read().moveAvailable : a.read().actionAvailable, false);
+    } finally { await a.close(); }
+  });
