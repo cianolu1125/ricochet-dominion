@@ -11,7 +11,7 @@
       name="description"
       content="弹射领地战争：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
     />
-    <title>弹射领地战争 · v0.2.0</title>
+    <title>弹射领地战争 · v0.2.1</title>
   </head>
   <body>
     <main id="game">
@@ -19,46 +19,28 @@
         <canvas
           id="board"
           tabindex="0"
-          aria-label="弹射领地战场，选择移动或飞弹后从发光位置向后拖拽"
+          aria-label="弹射领地战场，选择移动或飞弹后在战场任意位置向后拖拽"
         ></canvas>
       </div>
       <div id="hud">
-        <div id="round" class="pill"></div>
-        <button id="help" class="icon-button" aria-label="查看游戏规则">
-          ?</button
-        ><button id="menu" class="icon-button" aria-label="对局设置">⋯</button>
-        <div id="opponent" class="player-hud"></div>
-        <div id="current" class="player-hud"></div>
-        <div id="charge" class="pill" hidden></div>
+        <div id="opponent" class="player-hud" hidden>
+          <div id="opponent-info"></div>
+          <button id="opponent-close" aria-label="关闭对手血量">×</button>
+        </div>
         <div id="hint" role="status"></div>
         <div id="toast" role="status" hidden></div>
       </div>
-      <div id="controls">
-        <div id="stack" hidden></div>
-        <div id="precision" hidden>
-          <details>
-            <summary>精确瞄准</summary>
-            <label
-              >角度 <output id="angle-value">0°</output
-              ><input
-                id="angle"
-                type="range"
-                min="-180"
-                max="180"
-                value="0" /></label
-            ><label
-              >力度 <output id="power-value">70%</output
-              ><input
-                id="power"
-                type="range"
-                min="8"
-                max="100"
-                value="70" /></label
-            ><button id="precise-fire">发射</button>
-          </details>
+      <footer id="toolbar">
+        <div id="current" class="player-hud"></div>
+        <div id="turn-info"><div id="round"></div><div id="charge" hidden></div></div>
+        <button id="opponent-toggle" aria-label="显示或隐藏对手血量" aria-expanded="false" aria-controls="opponent">对手</button>
+        <button id="help" aria-label="查看游戏规则">?</button>
+        <button id="menu" aria-label="对局设置">⋯</button>
+        <div id="controls">
+          <div id="stack" hidden></div>
+          <button id="fab" class="fab">操作</button>
         </div>
-        <button id="fab" class="fab">操作</button>
-      </div>
+      </footer>
       <div id="overlay">
         <section id="panel" aria-labelledby="panel-title"></section>
       </div>
