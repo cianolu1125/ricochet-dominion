@@ -11,7 +11,7 @@
       name="description"
       content="弹射战线：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
     />
-    <title>弹射战线 · v0.3.1</title>
+    <title>弹射战线 · v0.4.0</title>
   </head>
   <body>
     <main id="game">
@@ -24,7 +24,7 @@
       </div>
       <div id="hud">
         <div id="opponent" class="player-hud" hidden>
-          <div id="opponent-info"></div>
+          <svg id="opponent-link" aria-hidden="true"></svg><div id="opponent-info"></div>
           <button id="opponent-close" aria-label="关闭对手血量">×</button>
         </div>
         <div id="hint" role="status"></div>
@@ -34,7 +34,6 @@
       <footer id="toolbar">
         <div id="current" class="player-hud"></div>
         <div id="turn-info"><div id="round"></div><div id="charge" hidden></div></div>
-        <button id="opponent-toggle" aria-label="显示或隐藏对手血量" aria-expanded="false" aria-controls="opponent">对手</button>
         <button id="help" aria-label="查看游戏规则">?</button>
         <button id="menu" aria-label="对局设置">⋯</button>
         <div id="controls">

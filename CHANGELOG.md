@@ -1,3 +1,13 @@
+# v0.4.0 — 2026-10-04
+
+- Separate HUD/battlefield layout, short anchored branch menu, enemy role info card and direct End Turn.
+- Explicit rotation → 200ms pause → rule settlement → presentation → input sequence.
+- Causal feedback director preserves independent real bounces and damage, merges simultaneous impact layers and clamps camera shake.
+- Single-context synthetic WebAudio, compressor/soft limiter, priority ducking, persistent SFX/volume/reduced-motion settings.
+- Three progressive capture charges, sparks, rings, short trails, independent HP numbers, tower fragments, retrieval/deployment and siege.
+- Landing-color tile waves, growth, signal loss/recovery and normalized territory conversion; no rule changes or outpost takeover.
+- Rule/UI regressions, feedback/visual behavior and real Canvas rendering verified; live browser/device QA unavailable.
+
 ## v0.3.1-ui-refinement
 
 - Replace floating menu panel with vanguard-anchored branching nodes and adaptive inward fans.
