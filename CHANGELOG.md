@@ -1,3 +1,11 @@
+## v0.3.1-ui-refinement
+
+- Replace floating menu panel with vanguard-anchored branching nodes and adaptive inward fans.
+- Maximize board camera with a four-pixel rim; keep the HUD as a canvas overlay.
+- Defer turn-start settlement until hot-seat rotation finishes, then lock input through explanatory effects.
+- Unify home, settings, HUD and aiming cancellation with the battlefield technology theme.
+- Preserve engine and physics rules; add edge-layout and settlement-order regression coverage.
+
 # v0.3.0-ui-theme · 2026-10-04
 
 UI / 主题更新，未改 v0.2.x 规则与数值，engine.js / physics.js 无改动。
