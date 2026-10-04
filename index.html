@@ -11,7 +11,7 @@
       name="description"
       content="弹射战线：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
     />
-    <title>弹射战线 · v0.4.0</title>
+    <title>弹射战线 · v0.5.0</title>
   </head>
   <body>
     <main id="game">
@@ -22,9 +22,20 @@
           aria-label="弹射领地战场，选择移动或飞弹后在战场任意位置向后拖拽"
         ></canvas>
       </div>
+      <div id="relay-hud" hidden>
+        <div
+          id="relay-track"
+          role="button"
+          tabindex="0"
+          aria-label="中继进度"
+        ></div>
+        <div id="relay-count"></div>
+        <div id="relay-skill"></div>
+      </div>
       <div id="hud">
         <div id="opponent" class="player-hud" hidden>
-          <svg id="opponent-link" aria-hidden="true"></svg><div id="opponent-info"></div>
+          <svg id="opponent-link" aria-hidden="true"></svg>
+          <div id="opponent-info"></div>
           <button id="opponent-close" aria-label="关闭对手血量">×</button>
         </div>
         <div id="hint" role="status"></div>
@@ -33,7 +44,10 @@
       <div id="stack" hidden></div>
       <footer id="toolbar">
         <div id="current" class="player-hud"></div>
-        <div id="turn-info"><div id="round"></div><div id="charge" hidden></div></div>
+        <div id="turn-info">
+          <div id="round"></div>
+          <div id="charge" hidden></div>
+        </div>
         <button id="help" aria-label="查看游戏规则">?</button>
         <button id="menu" aria-label="对局设置">⋯</button>
         <div id="controls">

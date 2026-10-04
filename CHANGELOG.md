@@ -1,3 +1,14 @@
+# v0.5.0 — 2026-10-04
+
+- Confirmed 1/3/5 real tower-capture thresholds, base carry, graded area/cross paint and direct-hit-only siege.
+- Dynamic contested components include new connections immediately, preserve deadlines across splits/merges and cancel rescued or source-less claims.
+- Geometry-derived same-color protection unions, claim-before-growth settlement and fatal prepaint release abort.
+- Actual-capacity frameless relay HUD, localized skills, shared gestures, single-column tactical menu and Custom 1–100 round limits with direct draws.
+- Cross propagation and shield pass-through, bounded 20/40ms Hit Stop with no thaw catch-up, causal sound/shake grouping and eight-voice audio limit.
+- Repair result-to-menu loop, stale match effects/audio, interrupted/closed audio recovery and preference independence.
+- Review corrections: prevent HUD Enter from ending turns; discard frozen wall-clock overlap; retain valid Custom input on invalid edit; smooth repeated HUD activation.
+- 122 tests, all-source syntax checks, production build and native Canvas render inspection. Real-device audio/performance/live browser QA remains unverified.
+
 # v0.4.0 — 2026-10-04
 
 - Separate HUD/battlefield layout, short anchored branch menu, enemy role info card and direct End Turn.
