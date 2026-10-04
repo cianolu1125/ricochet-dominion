@@ -9,9 +9,9 @@
     <meta name="theme-color" content="#111c27" />
     <meta
       name="description"
-      content="弹射领地战争：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
+      content="弹射战线：同设备双人回合制策略游戏。用五座塔连接领地，通过弹射、中继与攻城争夺战场。"
     />
-    <title>弹射领地战争 · v0.2.1</title>
+    <title>弹射战线 · v0.3.0</title>
   </head>
   <body>
     <main id="game">
@@ -30,6 +30,7 @@
         <div id="hint" role="status"></div>
         <div id="toast" role="status" hidden></div>
       </div>
+      <div id="stack" hidden></div>
       <footer id="toolbar">
         <div id="current" class="player-hud"></div>
         <div id="turn-info"><div id="round"></div><div id="charge" hidden></div></div>
@@ -37,9 +38,9 @@
         <button id="help" aria-label="查看游戏规则">?</button>
         <button id="menu" aria-label="对局设置">⋯</button>
         <div id="controls">
-          <div id="stack" hidden></div>
           <button id="fab" class="fab">操作</button>
         </div>
+        <button id="cancel-zone" hidden>取消</button>
       </footer>
       <div id="overlay">
         <section id="panel" aria-labelledby="panel-title"></section>
