@@ -1,4 +1,8 @@
 import "./style.css";
+import { AudioDirector } from "./audio.js";
+import { FeedbackDirector } from "./feedback.js";
+import { feedbackId, drainFacts } from "./feedback-events.js";
+import { snapshot, visualChanges as collectChanges } from "./visual-changes.js";
 import { CONFIG, VERSION } from "./config.js";
 import * as E from "./engine.js";
 import * as P from "./physics.js";
@@ -16,6 +20,9 @@ let selectedRounds = 14,
   rotation = 0,
   rotationStart = null,
   settlingUntil = null,
+  observeUntil = null,
+  opponentUntil = 0,
+  opponentClosingUntil = 0,
   menuLevel = null,
   selection = null,
   aim = null,
@@ -29,37 +36,59 @@ let selectedRounds = 14,
   overlayKind = "home",
   rulesReturn = "home",
   toastTimer,
-  sound = false,
-  audio,
+  sound = true,
+  volume = .65,
+  reduceMotion = reduced.matches,
+  motionExplicit = false,
   cancelArmed = false,
   settingsOrigin = "game",
   savedMenu = "root",
   savedSelection = null,
   toastKey = null;
 try {
-  sound = localStorage.getItem("rd-sound") === "on";
+  sound = localStorage.getItem("rd-sound") !== "off";
+  volume = Math.max(0,Math.min(1,Number(localStorage.getItem("rd-volume") ?? .65)));
+  motionExplicit=localStorage.getItem("rd-reduced")!==null;
+  reduceMotion = localStorage.getItem("rd-reduced") === null ? reduced.matches : localStorage.getItem("rd-reduced") === "on";
 } catch {}
-function tone(freq = 450) {
-  if (!sound) return;
-  try {
-    audio ||= new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator(),
-      g = audio.createGain();
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.025, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.08);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.08);
-  } catch {}
+const audio = new AudioDirector({enabled:sound,volume});
+const feedback = new FeedbackDirector(audio);
+feedback.reduced=reduceMotion;
+function submit(type,meta={},time=performance.now()) {
+  const eventId=feedbackId();feedback.submit([{type,eventId,groupId:eventId,owner:state.current,...meta}],time);
+}
+function tone() {submit('ui');}
+function saveSettings() {
+  audio.set(sound,volume);feedback.reduced=reduceMotion;
+  $("game").classList.toggle('reduced',reduceMotion);
+  try {localStorage.setItem('rd-sound',sound?'on':'off');localStorage.setItem('rd-volume',String(volume));if(motionExplicit)localStorage.setItem('rd-reduced',reduceMotion?'on':'off');}catch{}
+}
+function hideOpponent() {
+  opponentVisible=false;opponentUntil=0;opponentClosingUntil=0;$("opponent").classList.remove('closing');$("opponent").hidden=true;
+}
+function showOpponent(time=performance.now()) {
+  opponentVisible=true;opponentUntil=time+2400;opponentClosingUntil=0;
+  $("opponent").classList.remove('closing');$("opponent").hidden=false;positionOpponent();
+}
+function rolePoint(owner) {
+  const r=canvas.getBoundingClientRect(),v=boardViewport(),p=state.players[owner],w=p.world||{x:p.pos.x+.5,y:p.pos.y+.5},q=toView(w,state,viewOwner);
+  return {x:r.left+v.x+q.x*v.tile,y:r.top+v.y+q.y*v.tile};
+}
+function positionOpponent() {
+  if(!opponentVisible)return;
+  const p=rolePoint(E.enemy(state.current)),r=canvas.getBoundingClientRect(),v=boardViewport(),center={x:r.left+v.x+v.width/2,y:r.top+v.y+v.height/2};
+  const card=$("opponent"),width=176,height=82,down=center.y>=p.y,side=center.x>=p.x?1:-1;
+  const x=Math.max(r.left+4,Math.min(r.left+r.width-width-4,p.x+side*24-width/2));
+  const y=Math.max(r.top+4,Math.min(r.top+r.height-height-4,p.y+(down?22:-height-22)));
+  card.style.left=x+'px';card.style.top=y+'px';card.style.setProperty('--info-y',(down?-8:8)+'px');
+  $("opponent-link").innerHTML=`<path d="M ${p.x-x} ${p.y-y} L ${width/2} ${down?0:height}"/>`;
 }
 function toast(key) {
   toastKey = key;
   $("toast").textContent = t(key);
   $("toast").hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $("toast").hidden = true; toastKey=null; }, 2300);
+  toastTimer = setTimeout(() => { $("toast").hidden = true; toastKey=null; }, 1000);
 }
 function fit() {
   const rect = canvas.parentElement.getBoundingClientRect(),
@@ -75,65 +104,10 @@ function fit() {
   );
 }
 // Rendering transitions never delay or mutate authoritative rule settlement.
-function visualSnapshot() {
-  return {
-    cells: [...state.cells],
-    stability: [...state.stability],
-    hp: [0, state.players[1].hp, state.players[2].hp],
-    towerIds: state.towers.map((t) => t.id),
-    towers: structuredClone(state.towers),
-    claims: structuredClone(state.claims),
-  };
-}
-function visualChanges(before, time = performance.now()) {
-  if (!before) return;
-  const newTower = state.towers.find((t) => !before.towerIds.includes(t.id));
-  const claimTower = before.claims
-    .filter((c) => c.captor === state.current)
-    .flatMap((c) => c.sources)
-    .map((id) => state.towers.find((t) => t.id === id))
-    .find(Boolean);
-  const impact = [...effects]
-    .reverse()
-    .find((e) => ["blast", "siege"].includes(e.type));
-  const anchor =
-    newTower?.pos ||
-    claimTower?.pos ||
-    impact ||
-    state.players[state.current].pos;
-  for (let i = 0; i < state.cells.length; i++)
-    if (
-      before.cells[i] !== state.cells[i] ||
-      before.stability[i] !== state.stability[i]
-    ) {
-      const colorChanged = before.cells[i] !== state.cells[i];
-      transitions.set(i, {
-        from: before.cells[i],
-        fromTemporary: before.stability[i] === "temporary",
-        born: time,
-        delay: colorChanged
-          ? Math.min(
-              160,
-              Math.hypot(
-                (i % state.width) - anchor.x,
-                Math.floor(i / state.width) - anchor.y,
-              ) * 9,
-            )
-          : Math.min(220, Math.hypot((i % state.width)-anchor.x, Math.floor(i/state.width)-anchor.y)*8),
-        duration: reduced.matches ? 60 : colorChanged ? 180 : 230,
-      });
-    }
-  for (const owner of [1, 2])
-    if (state.players[owner].hp < before.hp[owner]) {
-      const p = state.players[owner].world || {
-        x: state.players[owner].pos.x + 0.5,
-        y: state.players[owner].pos.y + 0.5,
-      };
-      for(let n=0;n<before.hp[owner]-state.players[owner].hp;n++)
-        effects.push({ type: "damage", ...p, owner, born: time, drift: (effects.length % 3 - 1)*0.8, reduced: reduced.matches });
-    }
-  for(const old of before.towers) if(!state.towers.some(t=>t.id===old.id)) effects.push({type:"destroy",x:old.pos.x+0.5,y:old.pos.y+0.5,owner:old.owner,born:time});
-  for(const tower of state.towers) {const old=before.towers.find(t=>t.id===tower.id);if(!old || old.stage!==tower.stage) effects.push({type:"grow",x:tower.pos.x+0.5,y:tower.pos.y+0.5,owner:tower.owner,born:time});}
+function visualSnapshot() { return snapshot(state); }
+function visualChanges(before,time=performance.now(),facts=drainFacts(state)) {
+  const all=collectChanges(state,before,facts,time,reduceMotion,transitions);
+  feedback.submit(all,time);effects=feedback.effects;
 }
 function playerHUD(owner) {
   const p = state.players[owner],
@@ -144,7 +118,7 @@ function playerHUD(owner) {
 const button = (action, label, reason = "", cls = "") =>
   `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}</button>`;
 function drawStack() {
-  const stack=$("stack"), idle=state.phase === "IDLE" && !overlayKind && rotationStart === null && settlingUntil === null;
+  const stack=$("stack"), idle=state.phase === "IDLE" && !overlayKind && rotationStart === null && observeUntil === null && settlingUntil === null;
   if (idle && !selection && !menuLevel) menuLevel="root";
   stack.hidden=!idle || !menuLevel || (menuLevel === "root" && !state.moveAvailable && !state.actionAvailable);
   if(stack.hidden) return;
@@ -168,20 +142,22 @@ function positionMenu() {
   const anchor={x:r.left+board.x+p.x*board.tile,y:r.top+board.y+p.y*board.tile};
   const bottom=$("toolbar").getBoundingClientRect().top || innerHeight-64;
   const buttons=[...stack.querySelectorAll('button')];
-  const widths=buttons.map(b=>Math.max(b.dataset.action==='root'?60:80,Math.min(140,b.textContent.length*(getLanguage()==='en'?7:14)+24)));
-  const geometry=JSON.stringify([anchor,bottom,innerWidth,menuLevel,widths]);
+  const widths=buttons.map(b=>Math.max(b.dataset.action==='root'?44:80,b.dataset.action==='root'?44:Math.min(144,b.textContent.length*(getLanguage()==='en'?7:14)+36)));
+  const geometry=JSON.stringify([anchor,bottom,innerWidth,menuLevel,widths,board.tile]);
   const svg=stack.querySelector(".branch-lines");
   if(svg.dataset.geometry===geometry) return;
   svg.dataset.geometry=geometry;
   const fanWidths=menuLevel==='action' ? [widths[3],...widths.slice(0,3)] : widths;
-  const layout=branchLayout(anchor,{left:4,top:4,right:innerWidth-4,bottom:bottom-8},menuLevel==='action'?'action':'root',fanWidths);
+  const layout=branchLayout(anchor,{left:4,top:4,right:innerWidth-4,bottom:bottom-8},menuLevel==='action'?'action':'root',fanWidths,board.tile);
   stack.style.setProperty("--team",TEAM[state.current]);
+  layout.nodes=layout.nodes.filter(n=>buttons.some(b=>b.dataset.action===n.key));
+  layout.links=layout.links.filter(l=>layout.nodes.some(n=>n.x===l.to.x&&n.y===l.to.y));
   const points=new Map(layout.nodes.map(n=>[n.key,n]));
   buttons.forEach((b,i)=>{
     const n=points.get(b.dataset.action) || layout.nodes[0];
     b.style.left=(n.x-n.width/2)+"px"; b.style.top=(n.y-n.height/2)+"px";
-    b.style.width=n.width+"px";b.style.setProperty('--delay',(i*35+70)+'ms');
-    b.style.setProperty('--from-x',(anchor.x-n.x)+'px');b.style.setProperty('--from-y',(anchor.y-n.y)+'px');
+    b.style.width=n.width+"px";b.style.setProperty('--delay',(i*18)+'ms');
+    const length=Math.hypot(anchor.x-n.x,anchor.y-n.y)||1;b.style.setProperty('--from-x',((anchor.x-n.x)/length*7)+'px');b.style.setProperty('--from-y',((anchor.y-n.y)/length*7)+'px');
   });
   stack.querySelector('.branch-lines').innerHTML=layout.links.map(l=>`<path d="M ${l.from.x} ${l.from.y} L ${l.to.x} ${l.to.y}"/>`).join('');
   const label=stack.querySelector('p');if(label){label.style.left=Math.max(4,Math.min(innerWidth-180,anchor.x-90))+'px';label.style.top=Math.max(4,anchor.y-92)+'px';}
@@ -210,25 +186,25 @@ function update() {
   $("charge").hidden=!state.phase.startsWith("MISSILE");
   $("charge").textContent=t("Charge")+" "+["0","Ⅰ","Ⅱ","Ⅲ"][state.charge];
   $("hint").textContent=selection ? t("Select Outpost") : "";
-  $("fab").textContent=t("End Turn");
-  $("fab").disabled=flying || rotationStart!==null || settlingUntil!==null || !!overlayKind;
-  $("menu").disabled=rotationStart!==null || settlingUntil!==null;
-  $("opponent-toggle").disabled=rotationStart!==null || settlingUntil!==null;
+  const switching=rotationStart!==null||observeUntil!==null||settlingUntil!==null;
+  $("toolbar").classList.toggle("switching",switching);$("toolbar").style.setProperty("--turn-team",TEAM[c]);
+  $("fab").textContent=t(switching?"Switching":"End Turn");
+  $("fab").disabled=flying || rotationStart!==null || observeUntil!==null || settlingUntil!==null || !!overlayKind;
+  $("menu").disabled=rotationStart!==null || observeUntil!==null || settlingUntil!==null;
   $("fab").className=`fab ${c===1?'red':'blue'}`;
   $("cancel-zone").hidden=!aiming;
   $("cancel-zone").textContent=cancelArmed ? t(state.phase.startsWith("MOVE") ? "Release to Cancel Move" : "Release to Cancel Fire") : t(state.committed ? "Relay Cancel" : "Cancel");
-  $("opponent").hidden=!opponentVisible || aiming;
-  $("opponent-toggle").textContent=t("Opponent");
-  $("opponent-toggle").setAttribute("aria-label",t("Opponent"));
+  if(aiming)hideOpponent();
+  $("opponent").hidden=!opponentVisible || aiming || switching || !!overlayKind;
   $("opponent-close").setAttribute("aria-label",t("Close opponent"));
   $("menu").setAttribute("aria-label",t("Settings"));
   $("help").setAttribute("aria-label",t("Rules"));
-  $("opponent-toggle").setAttribute("aria-expanded",String(opponentVisible));
   if(toastKey) $("toast").textContent=t(toastKey);
   drawStack();
   if(state.winner && overlayKind!=="result") result();
 }
 function panel(kind, content) {
+  hideOpponent();
   overlayKind = kind;
   $("overlay").hidden = false;
   $("panel").innerHTML = content;
@@ -255,26 +231,28 @@ function start() {
   );
   viewOwner = 1;
   rotationStart = null;
+  observeUntil = null;
   settlingUntil = null;
   rotation = 0;
-  effects = [];
+  feedback.clear();effects = feedback.effects;
   transitions.clear();
   accumulator = 0;
   settingsOrigin="game"; menuLevel="root"; selection=null; cancelArmed=false;
   closePanel();
   fit();
-  toast("Red starts");
+  toast("Red starts");showOpponent();
 }
 function rules() {
   if(overlayKind!=="rules") rulesReturn=overlayKind || "game";
   panel("rules",`<h2 id="panel-title">${t("Rules")}</h2>${t("Rules text")}<div class="legend"><span><i></i>${t("Connected")}</span><span><i class="temporary"></i>${t("Disconnected")}</span><span><i class="protected"></i>${t("Outpost Zone")}</span><span><i class="pending"></i>${t("Contested")}</span></div><button class="primary" data-panel="close">${t("Understood")}</button>`);
 }
 function result() {
+ submit("complete");
  const w=state.winner,c=E.counts(state),label=t({hp:'Knockout',territory:'Domination',score:'Territory Lead',overtime:'Overtime result'}[w.reason]);
  panel("result",`<p class="eyebrow">${t("Game Over")} · ${label}</p><h2 id="panel-title">${w.player ? teamName(w.player)+' '+t("Wins") : t("Draw")}</h2>${[1,2].map(o=>`<p style="color:${TEAM[o]}">${teamName(o)} · ${((100*c[o])/state.cells.length).toFixed(1)}% · ${state.players[o].hp} HP · ${state.towers.filter(t=>t.owner===o).length} ${t("Outposts")}</p>`).join('')}<button class="primary" data-panel="start">${t("Rematch")}</button><button class="settings-entry" data-panel="home">${t("Main Menu")}</button>`);
 }
 function end() {
-  if(overlayKind || rotationStart!==null || settlingUntil!==null || state.phase.includes("FLYING")) return;
+  if(overlayKind || rotationStart!==null || observeUntil!==null || settlingUntil!==null || state.phase.includes("FLYING")) return;
   if(state.phase.includes("AIM")) {
     const before=visualSnapshot();
     // End Turn explicitly settles a held projectile/move using the existing stop rules.
@@ -286,34 +264,27 @@ function end() {
     update();
     return;
   }
-  panel(
-    "handoff",
-    `<p class="eyebrow">${t("Pass device")}</p><h2 id="panel-title" style="color:${TEAM[state.current]}">${teamName(state.current)}</h2><p>${t("Prepare")}</p><button class="primary" data-panel="ready">${t("Ready")}</button>`,
-  );
+  hideOpponent();menuLevel=null;selection=null;aim=null;pointer=null;
+  submit('handoff');
+  ready();
 }
 function settleNewTurn(time) {
   const before=visualSnapshot();
-  E.beginTurn(state);
-  visualChanges(before,time);
-  // Finish the longest explanatory wave before the new player can act.
-  settlingUntil=Math.max(
-    time+(reduced.matches ? 100 : 520),
-    ...[...transitions.values()].map(t=>t.born+t.delay+t.duration),
-    ...effects.map(e=>e.born+(e.type==='damage'?650:480)),
-  );
-  menuLevel=null;
-  accumulator=0;
-  update();
+  E.beginTurn(state);visualChanges(before,time);
+  const until=Math.max(time,...[...transitions.values()].map(t=>t.born+t.delay+t.duration),...feedback.effects.map(e=>e.born+e.duration));
+  settlingUntil=until>time ? until : null;
+  menuLevel=settlingUntil ? null : "root";accumulator=0;update();
+  if(settlingUntil===null)showOpponent(time);
 }
 function ready() {
-  // Keep HANDOFF authoritative throughout the camera transition.
-  overlayKind=null; $("overlay").hidden=true; menuLevel=null;
-  if(state.profile!=="desktop" && !reduced.matches) {
-    rotationStart=performance.now();rotation=0;update();
-  } else {viewOwner=state.current;settleNewTurn(performance.now());}
+  overlayKind=null;$("overlay").hidden=true;menuLevel=null;
+  if(state.profile!=="desktop" && !reduceMotion) {
+    rotationStart=performance.now();rotation=0;
+  } else {viewOwner=state.current;observeUntil=performance.now()+200;}
+  update();
 }
 function doAction(action) {
- if(overlayKind || rotationStart!==null || settlingUntil!==null) return;
+ if(overlayKind || rotationStart!==null || observeUntil!==null || settlingUntil!==null) return;
  const before=visualSnapshot(); selection=null; aim=null;pointer=null;
  if(action==='root' || action==='action') menuLevel=action;
  else if(action==='move' || action==='missile') {E.chooseAim(state,action==='move'?'move':'missile'); menuLevel=null;}
@@ -353,28 +324,25 @@ $("panel").addEventListener("click",event=>{
   else {menuLevel=savedMenu;selection=savedSelection;closePanel();}
  } else if(action.startsWith('round-')) {selectedRounds=Number(action.slice(6));home();}
  else if(action.startsWith('lang-')) {setLanguage(action==='lang-en'?'en':'zh-CN');menuPanel();}
- else if(action==='sound') {sound=!sound;try{localStorage.setItem('rd-sound',sound?'on':'off');}catch{}menuPanel();tone();}
+ else if(action==='sound') {sound=!sound;saveSettings();menuPanel();tone();}
+ else if(action==='reduced') {motionExplicit=true;reduceMotion=!reduceMotion;saveSettings();menuPanel();}
  else if(action==='restart' || action==='main-menu') {
   const main=action==='main-menu';panel('confirm',`<h2 id="panel-title">${t(main?'Main Menu?':'Restart?')}</h2><p>${t('Clear match')}</p><button class="primary" data-panel="${main?'home':'start'}">${t(main?'Confirm menu':'Confirm restart')}</button><button class="settings-entry" data-panel="close">${t('Continue')}</button>`);
  }
 });
-$("opponent-toggle").onclick = () => {
-  opponentVisible = !opponentVisible;
-  update();
-};
 $("opponent-close").onclick = () => {
-  opponentVisible = false;
+  hideOpponent();
   update();
 };
 $("help").onclick = rules;
 function menuPanel() {
  if(!overlayKind) {savedMenu=menuLevel || 'root';savedSelection=selection;}
- panel('menu',`<h2 id="panel-title">${t('Settings')}</h2><p>${t('Language')}</p><div class="row"><button data-panel="lang-zh" class="${getLanguage()==='zh-CN'?'selected':''}">简体中文</button><button data-panel="lang-en" class="${getLanguage()==='en'?'selected':''}">English</button></div><button class="primary" data-panel="close">${t(settingsOrigin==='home'?'Back':'Continue')}</button><div class="row"><button data-panel="rules">${t('Rules')}</button><button data-panel="sound">${t('Sound')} ${t(sound?'On':'Off')}</button></div>${settingsOrigin==='game'?`<div class="row"><button data-panel="restart">${t('Restart')}</button><button data-panel="main-menu">${t('Main Menu')}</button></div>`:''}<p class="version">v${VERSION}</p>`);
+ panel('menu',`<h2 id="panel-title">${t('Settings')}</h2><p>${t('Language')}</p><div class="row"><button data-panel="lang-zh" class="${getLanguage()==='zh-CN'?'selected':''}">简体中文</button><button data-panel="lang-en" class="${getLanguage()==='en'?'selected':''}">English</button></div><button class="primary" data-panel="close">${t(settingsOrigin==='home'?'Back':'Continue')}</button><div class="row"><button data-panel="rules">${t('Rules')}</button><button data-panel="sound">${t('Sound')} ${t(sound?'On':'Off')}</button></div><label class="setting-label">${t('Volume')} <output id="volume-value">${Math.round(volume*100)}%</output><input id="volume" type="range" min="0" max="100" value="${Math.round(volume*100)}" aria-label="${t('Volume')}"></label><button class="settings-entry" data-panel="reduced">${t('Reduce Motion')} ${t(reduceMotion?'On':'Off')}</button>${settingsOrigin==='game'?`<div class="row"><button data-panel="restart">${t('Restart')}</button><button data-panel="main-menu">${t('Main Menu')}</button></div>`:''}<p class="version">v${VERSION}</p>`);
 }
 $("menu").onclick=()=>{settingsOrigin='game';menuPanel();};
 function boardViewport() {
- const r=canvas.getBoundingClientRect(),toolbar=$("toolbar").getBoundingClientRect();
- return battlefieldViewport(state,r.width,r.height,toolbar.height || 64);
+ const r=canvas.getBoundingClientRect();
+ return battlefieldViewport(state,r.width,r.height);
 }
 function worldPoint(event) {
   const r = canvas.getBoundingClientRect(),board=boardViewport();
@@ -392,13 +360,15 @@ function pointerAim(event) {
     maxPull = Math.min(130, rect.width * 0.35),
     dx = dragStart.x - event.clientX,
     dy = dragStart.y - event.clientY,
-    d = fromView({ x: dx / rect.width * state.width, y: dy / rect.height * state.height }, state, viewOwner),
+    d = fromView({ x: dx / boardViewport().tile, y: dy / boardViewport().tile }, state, viewOwner),
     zero = fromView({ x: 0, y: 0 }, state, viewOwner);
   return { x: d.x - zero.x, y: d.y - zero.y, power: Math.min(1, Math.hypot(dx, dy) / maxPull) };
 }
 function fire(a) {
+  const start=P.origin(state),kind=state.phase.startsWith('MOVE')?'launch':'fire';
   if (P.launch(state, a, a.power)) {
-    tone(650);
+    feedback.releaseCharge(start.x,start.y,performance.now());
+    submit(kind,{...start,charge:state.charge});
     menuLevel = null;
     selection = null;
   } else toast("Pull farther");
@@ -407,9 +377,15 @@ function fire(a) {
   update();
 }
 canvas.addEventListener("pointerdown", (event) => {
-  if (overlayKind || rotationStart !== null || settlingUntil !== null || event.button !== 0 || pointer !== null)
+  if (overlayKind || rotationStart !== null || observeUntil !== null || settlingUntil !== null || event.button !== 0 || pointer !== null)
     return;
+  audio.unlock();
   const p = worldPoint(event);
+  if(state.phase==='IDLE' && !selection) {
+    const target=rolePoint(E.enemy(state.current));
+    if(Math.abs(event.clientX-target.x)<=22 && Math.abs(event.clientY-target.y)<=22){showOpponent();update();return;}
+    hideOpponent();
+  }
   if (selection) {
     const valid =
       selection === "redeploy"
@@ -433,6 +409,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (!state.phase.includes("AIM")) return;
   if(event.clientX<4 || event.clientX>innerWidth-4 || event.clientY<4 || event.clientY>innerHeight-4) return;
   // Relative drag: no need to touch the character or relay tower precisely.
+  hideOpponent();
   dragStart = { x: event.clientX, y: event.clientY };
   pointer = event.pointerId;
   aim = pointerAim(event);
@@ -465,9 +442,10 @@ for (const name of ["pointercancel", "lostpointercapture"])
     update();
   });
 document.addEventListener("keydown", (e) => {
+  audio.unlock();
   if(e.key === "Enter" && !overlayKind && !e.target.closest?.("button")) {end();return;}
   if (e.key !== "Escape") return;
-  if(rotationStart!==null || settlingUntil!==null) return;
+  if(rotationStart!==null || observeUntil!==null || settlingUntil!==null) return;
   if (overlayKind === "rules") {
     if (rulesReturn === "home") home();
     else if(rulesReturn === "menu") menuPanel();
@@ -501,26 +479,25 @@ function frame(time) {
       rotationStart = null;
       rotation = 0;
       viewOwner = state.current;
-      settleNewTurn(time);
+      observeUntil=time+200;
     }
   }
-  if(settlingUntil!==null && time>=settlingUntil) {settlingUntil=null;menuLevel="root";update();}
-  if (!overlayKind && rotationStart === null && settlingUntil === null && !document.hidden) {
+  if(observeUntil!==null && time>=observeUntil) {observeUntil=null;settleNewTurn(time);}
+  if(settlingUntil!==null && time>=settlingUntil) {settlingUntil=null;menuLevel="root";update();showOpponent(time);}
+  if(opponentVisible && opponentUntil && time>=opponentUntil) {opponentUntil=0;opponentClosingUntil=time+140;$("opponent").classList.add('closing');}
+  if(opponentClosingUntil && time>=opponentClosingUntil)hideOpponent();
+  if (!overlayKind && rotationStart === null && observeUntil === null && settlingUntil === null && !document.hidden) {
     accumulator += dt;
     const phase = state.phase;
-    const before = state.activeBody ? visualSnapshot() : null;
     while (accumulator >= CONFIG.physics.step) {
-      const e = P.stepBody(state, CONFIG.physics.step);
-      if (e.length)
-        effects.push(
-          ...e.map((a) => ({ ...a, owner: state.current, born: time })),
-        );
-      accumulator -= CONFIG.physics.step;
+      const before=state.activeBody?visualSnapshot():null;
+      P.stepBody(state,CONFIG.physics.step);
+      if(before)visualChanges(before,time);
+      accumulator-=CONFIG.physics.step;
     }
-    visualChanges(before, time);
     if (phase !== state.phase || state.activeBody?.carried) update();
   } else accumulator = 0;
-  effects = effects.filter((e) => time - e.born < (e.type === "damage" ? 650 : 480)).slice(-80);
+  feedback.update(time);effects=feedback.effects;
   for (const [i, t] of transitions)
     if (time - t.born > t.delay + t.duration) transitions.delete(i);
   render(canvas, state, {
@@ -533,10 +510,12 @@ function frame(time) {
     time,
     cancelArmed,
     viewport: boardViewport(),
-    reduced: reduced.matches,
+    reduced: reduceMotion,
+    shake: feedback.shake(time),
+    opponentFocus: opponentVisible,
     contestedLabel: t("Contested"),
   });
-  positionMenu();
+  positionMenu();positionOpponent();
   requestAnimationFrame(frame);
 }
 new ResizeObserver(fit).observe(canvas.parentElement);
@@ -546,6 +525,7 @@ window.addEventListener("resize", () => {
 });
 document.addEventListener("visibilitychange", () => {
   accumulator = 0;
+  feedback.clear();transitions.clear();drainFacts(state);if(document.hidden)audio.suspend();else audio.resume();hideOpponent();
   last = performance.now();
   pointer = null;
   aim = null;
@@ -593,6 +573,12 @@ if (document.modelContext?.registerTool)
       }),
     ).catch(() => {});
   } catch {}
+$("panel").addEventListener('input',event=>{
+ if(event.target.id==='volume'){volume=Number(event.target.value)/100;saveSettings();$("volume-value").textContent=Math.round(volume*100)+'%';}
+});
+document.addEventListener('pointerdown',()=>audio.unlock(),{capture:true});
+reduced.addEventListener('change',event=>{try{if(localStorage.getItem('rd-reduced')!==null)return;}catch{}reduceMotion=event.matches;feedback.reduced=reduceMotion;$("game").classList.toggle('reduced',reduceMotion);});
+$("game").classList.toggle('reduced',reduceMotion);
 fit();
 home();
 requestAnimationFrame(frame);

@@ -1,16 +1,16 @@
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Choose an inward-facing fan, keeping independent touch targets inside the viewport.
-export function branchLayout(anchor, bounds, level = 'root', widths = []) {
+export function branchLayout(anchor, bounds, level = 'root', widths = [], tile = 30) {
   let best;
   const action = level === 'action';
   for (let step = 0; step < 24; step++) {
     const angle = step * Math.PI / 12;
     for (const spread of [0.9, 1.1, 1.3]) {
-      const hub = action ? {x:anchor.x+Math.cos(angle)*58,y:anchor.y+Math.sin(angle)*58} : anchor;
+      const hub = action ? {x:anchor.x+Math.cos(angle)*38,y:anchor.y+Math.sin(angle)*38} : anchor;
       const specs = action
-        ? [{key:'root',angle,radius:0,width:60}, ...['missile','tower','dismantle'].map((key,i)=>({key,angle:angle+(i-1)*spread,radius:132,width:widths[i+1] || 116}))]
-        : ['move','action'].map((key,i)=>({key,angle:angle+(i-.5)*spread,radius:96,width:widths[i] || 80}));
+        ? [{key:'root',angle,radius:0,width:widths[0]||44}, ...['missile','tower','dismantle'].map((key,i)=>({key,angle:angle+(i-1)*spread,radius:Math.max(104,Math.min(132,tile*2)),width:widths[i+1] || 116}))]
+        : ['move','action'].map((key,i)=>({key,angle:angle+(i-.5)*spread,radius:Math.max(68,Math.min(96,tile*2)),width:widths[i] || 80}));
       let score = 0;
       const nodes = specs.map(n=>{
         const raw={x:hub.x+Math.cos(n.angle)*n.radius,y:hub.y+Math.sin(n.angle)*n.radius};

@@ -1,3 +1,4 @@
+import { fact } from "./feedback-events.js";
 import { CONFIG, NAMES, PROFILES } from "./config.js";
 export const enemy = (p) => 3 - p;
 export const same = (a, b) => a.x === b.x && a.y === b.y;
@@ -291,6 +292,8 @@ export function win(s, player, reason) {
 export function damage(s, owner) {
   if (s.winner) return false;
   s.players[owner].hp--;
+  const p=s.players[owner];
+  fact(s,{type:"damage",owner,...(s.feedbackPosition || p.world || {x:p.pos.x+.5,y:p.pos.y+.5})});
   log(s, `${NAMES[owner]} -1 HP`);
   if (s.players[owner].hp <= 0) win(s, enemy(owner), "hp");
   return true;

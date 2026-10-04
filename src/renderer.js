@@ -1,3 +1,5 @@
+import { tilePresentation } from "./feedback.js";
+import { drawEffects } from "./effects.js";
 import { toView } from "./view.js";
 import { origin, previewImpact } from "./physics.js";
 export const TEAM = { 1: "#efaaa2", 2: "#9bc7f0" };
@@ -20,7 +22,7 @@ export function render(canvas, s, v) {
     tile = v.viewport?.tile || width / s.width;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
-  ctx.translate(v.viewport?.x || 0, v.viewport?.y || 0);
+  ctx.translate((v.viewport?.x || 0)+(v.shake?.x||0), (v.viewport?.y || 0)+(v.shake?.y||0));
   ctx.scale(tile, tile);
   ctx.translate(s.width / 2, s.height / 2);
   ctx.rotate(v.rotation || 0);
@@ -58,15 +60,17 @@ export function render(canvas, s, v) {
             ),
           )
         : 1;
-      const targetAlpha = s.stability[i] === "temporary" ? 0.58 : 1;
-      const fromAlpha = transition?.fromTemporary ? 0.58 : 1;
-      ctx.globalAlpha = fromAlpha + (targetAlpha - fromAlpha) * progress;
-      ctx.fillStyle = transition
-        ? blend(transition.from, o, progress)
-        : FILL[o];
-      ctx.fillRect(p.x - 0.484, p.y - 0.484, 0.968, 0.968);
+      const show=transition?tilePresentation(transition,v.time,v.reduced):{progress:1,owner:o,lift:0,scale:1};
+      ctx.save();ctx.translate(p.x,p.y);ctx.scale(show.scale,show.scale);ctx.translate(-p.x,-p.y-show.lift*(transition?.soft?.045:.10));
+      const temporary=transition&&show.progress<.7?transition.fromTemporary:s.stability[i]==='temporary';
+      const targetAlpha=s.stability[i]==='temporary'?.58:1,fromAlpha=transition?.fromTemporary?.58:1;
+      if(show.lift>0){ctx.globalAlpha=show.lift*.3;ctx.fillStyle='#020a12';ctx.fillRect(p.x-.48,p.y-.45+show.lift*.14,.96,.96);}
+      ctx.globalAlpha = fromAlpha+(targetAlpha-fromAlpha)*progress;
+      ctx.fillStyle = transition ? transition.wave&&!v.reduced?FILL[show.owner]:blend(transition.from,o,progress) : FILL[o];
+      ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
+      if(show.lift>0){ctx.strokeStyle=(TEAM[show.owner]||'#9bc7f0')+'55';ctx.lineWidth=.015;ctx.strokeRect(p.x-.48,p.y-.48,.96,.96);}
       ctx.globalAlpha = 1;
-      if (s.stability[i] === "temporary") {
+      if (temporary) {
         ctx.strokeStyle = TEAM[o] + "36";
         ctx.lineWidth = 0.025;
         ctx.beginPath();
@@ -115,6 +119,7 @@ export function render(canvas, s, v) {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
+      ctx.restore();
     }
   for (const c of s.claims) {
     const id = c.cells.find((i) => pending.has(i));
@@ -133,6 +138,8 @@ export function render(canvas, s, v) {
     ctx.restore();
   }
   for (const t of s.towers) {
+    const building=v.effects.find(e=>e.type==='build'&&e.x===t.pos.x+.5&&e.y===t.pos.y+.5);
+    if(building&&v.time-building.born<140&&!v.reduced)continue;
     const p = pt({ x: t.pos.x + 0.5, y: t.pos.y + 0.5 }),
       selected =
         v.select &&
@@ -193,9 +200,12 @@ export function render(canvas, s, v) {
     }
     ctx.lineWidth = 0.08;
     circle(p, 0.34, "#0d1c29");
-    circle(p, 0.3, TEAM[owner], true);
+    const hurt=v.effects.find(e=>e.type==='damage'&&e.owner===owner&&v.time-e.born<110);
+    ctx.lineWidth=hurt&&!v.reduced?.08+Math.sin((v.time-hurt.born)*.3)*.02:.08;
+    circle(p, 0.3, hurt?'#eff8ff':TEAM[owner], true);
+    if(owner!==s.current&&v.opponentFocus){ctx.lineWidth=.025;circle(p,.48,TEAM[owner]+'55',true);}
     const flashed = v.effects.some(
-      (e) => e.type === "damage" && e.owner === owner && v.time - e.born < 180,
+      (e) => e.type === "damage" && e.owner === owner && v.time - e.born < 90,
     );
     circle(p, 0.21, flashed ? "#edf4f8" : TEAM[owner] + "44");
     ctx.fillStyle = TEAM[owner];
@@ -232,6 +242,10 @@ export function render(canvas, s, v) {
       TEAM[s.current] + "a0",
       true,
     );
+    if(s.phase.startsWith('MISSILE')&&s.charge>0) {
+      for(let n=0;n<Math.min(2,s.charge);n++)circle(p,.4+n*.1,TEAM[s.current]+'80',true);
+      ctx.save();ctx.translate(p.x+.8,p.y-.6);ctx.rotate(-(v.rotation||0));ctx.fillStyle=TEAM[s.current];ctx.font='700 .5px system-ui';ctx.fillText(['','Ⅰ','Ⅱ','Ⅲ'][s.charge],0,0);ctx.restore();
+    }
     if (v.aim) {
       const aim = v.aim,
         len = Math.hypot(aim.x, aim.y) || 1,
@@ -275,8 +289,11 @@ export function render(canvas, s, v) {
   }
   const m = s.activeBody;
   if (m) {
-    for (let n = 0; n < m.trail.length; n++)
-      circle(pt(m.trail[n]), 0.035 + n * 0.004, TEAM[s.current] + "55");
+    for (let n = Math.max(0,m.trail.length-(m.charge===3?10:7)); n < m.trail.length; n++) {
+      ctx.globalAlpha=(n+1)/m.trail.length*.5;
+      circle(pt(m.trail[n]), .04+(m.charge||0)*.016, TEAM[s.current]);
+    }
+    ctx.globalAlpha=1;
     if (m.kind === "missile") {
       const p = pt(m),
         f = pt({ x: m.x + m.vx, y: m.y + m.vy });
@@ -302,42 +319,6 @@ export function render(canvas, s, v) {
       }
     }
   }
-  for (const e of v.effects) {
-    const age = v.time - e.born;
-    const duration=e.type === "damage" ? 650 : 480;
-    if (age > duration) continue;
-    const p = pt(e);
-    ctx.globalAlpha = 1 - age / duration;
-    ctx.lineWidth = 0.06;
-    const r =
-      e.type === "damage" ? 0.34 + Math.min(age/200,1)*0.12 :
-      e.type === "capture"
-        ? 0.85 - age / 600
-        : 0.2 + (age / 250) * (e.radius || 1);
-    circle(p, Math.max(0.1, r), TEAM[e.owner || s.current], true);
-    if(e.type === "damage") {
-      const progress=age/duration, drift=e.drift || 0.3;
-      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(-(v.rotation || 0));
-      ctx.font="700 .48px system-ui";ctx.textAlign="center";ctx.fillStyle="#f9eef0";
-      ctx.fillText("−1 HP",(e.reduced ? .6 : .5+drift*progress),e.reduced ? -.6 : -.3-1.8*progress+1.4*progress*progress);
-      ctx.restore();
-    }
-    if (e.type === "siege" || e.type === "destroy") {
-      ctx.fillStyle = TEAM[3 - e.owner];
-      for (const [dx, dy] of [
-        [-1, -1],
-        [1, -1],
-        [-1, 1],
-        [1, 1],
-      ])
-        ctx.fillRect(
-          p.x + dx * (0.2 + age / 380) - 0.09,
-          p.y + dy * (0.2 + age / 380) - 0.09,
-          0.18,
-          0.18,
-        );
-    }
-    ctx.globalAlpha = 1;
-  }
+  drawEffects(ctx,v.effects,v.time,pt,TEAM,v.reduced,v.rotation||0);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

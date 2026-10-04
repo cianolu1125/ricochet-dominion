@@ -1,4 +1,4 @@
-export const VERSION = "0.3.1-ui-refinement";
+export const VERSION = "0.4.0";
 export const NAMES = { 1: "红方", 2: "蓝方" };
 export const PROFILES = {
   phone: [18, 32],
