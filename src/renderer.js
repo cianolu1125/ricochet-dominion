@@ -17,9 +17,10 @@ export function render(canvas, s, v) {
   const width = canvas.clientWidth || parseFloat(canvas.style.width) || 360,
     height = canvas.clientHeight || parseFloat(canvas.style.height) || 640,
     dpr = canvas.width / width,
-    tile = width / s.width;
+    tile = v.viewport?.tile || width / s.width;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
+  ctx.translate(v.viewport?.x || 0, v.viewport?.y || 0);
   ctx.scale(tile, tile);
   ctx.translate(s.width / 2, s.height / 2);
   ctx.rotate(v.rotation || 0);
@@ -82,7 +83,7 @@ export function render(canvas, s, v) {
       }
       if (pending.has(i)) {
         ctx.strokeStyle = TEAM[pending.get(i)];
-        ctx.globalAlpha = 0.35 + (0.3 * (Math.sin(v.time / 230) + 1)) / 2;
+        ctx.globalAlpha = 0.35 + (0.3 * (Math.sin(v.reduced ? 0 : v.time / 230) + 1)) / 2;
         ctx.lineWidth = 0.07;
         ctx.beginPath();
         for (const [dx, dy] of [
@@ -128,7 +129,7 @@ export function render(canvas, s, v) {
     ctx.fillStyle = TEAM[c.captor];
     ctx.font = "600 .35px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("1 TURN", 0, 0);
+    ctx.fillText(v.contestedLabel || "Contested", 0, 0);
     ctx.restore();
   }
   for (const t of s.towers) {
@@ -227,7 +228,7 @@ export function render(canvas, s, v) {
     ctx.lineWidth = 0.05;
     circle(
       p,
-      0.68 + Math.sin(v.time / 180) * 0.04,
+      0.68 + Math.sin(v.reduced ? 0 : v.time / 180) * 0.04,
       TEAM[s.current] + "a0",
       true,
     );
@@ -239,7 +240,7 @@ export function render(canvas, s, v) {
           y: origin(s).y + (aim.y / len) * (1 + aim.power * 4),
         },
         end = pt(worldEnd);
-      ctx.strokeStyle = TEAM[s.current];
+      ctx.strokeStyle = v.cancelArmed ? "#efaaa2" : TEAM[s.current];
       ctx.lineWidth = 0.075;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
@@ -248,7 +249,7 @@ export function render(canvas, s, v) {
       ctx.save();
       ctx.translate(end.x, end.y);
       ctx.rotate(Math.atan2(end.y - p.y, end.x - p.x));
-      ctx.fillStyle = TEAM[s.current];
+      ctx.fillStyle = v.cancelArmed ? "#efaaa2" : TEAM[s.current];
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(-0.3, -0.16);
@@ -303,16 +304,25 @@ export function render(canvas, s, v) {
   }
   for (const e of v.effects) {
     const age = v.time - e.born;
-    if (age > 480) continue;
+    const duration=e.type === "damage" ? 650 : 480;
+    if (age > duration) continue;
     const p = pt(e);
-    ctx.globalAlpha = 1 - age / 480;
+    ctx.globalAlpha = 1 - age / duration;
     ctx.lineWidth = 0.06;
     const r =
+      e.type === "damage" ? 0.34 + Math.min(age/200,1)*0.12 :
       e.type === "capture"
         ? 0.85 - age / 600
         : 0.2 + (age / 250) * (e.radius || 1);
     circle(p, Math.max(0.1, r), TEAM[e.owner || s.current], true);
-    if (e.type === "siege") {
+    if(e.type === "damage") {
+      const progress=age/duration, drift=e.drift || 0.3;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(-(v.rotation || 0));
+      ctx.font="700 .48px system-ui";ctx.textAlign="center";ctx.fillStyle="#f9eef0";
+      ctx.fillText("−1 HP",(e.reduced ? .6 : .5+drift*progress),e.reduced ? -.6 : -.3-1.8*progress+1.4*progress*progress);
+      ctx.restore();
+    }
+    if (e.type === "siege" || e.type === "destroy") {
       ctx.fillStyle = TEAM[3 - e.owner];
       for (const [dx, dy] of [
         [-1, -1],

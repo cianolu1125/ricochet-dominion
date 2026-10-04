@@ -1,4 +1,4 @@
-export const VERSION = "0.2.1-drag-ui";
+export const VERSION = "0.3.0-ui-theme";
 export const NAMES = { 1: "红方", 2: "蓝方" };
 export const PROFILES = {
   phone: [18, 32],

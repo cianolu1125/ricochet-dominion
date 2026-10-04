@@ -478,3 +478,47 @@ html, body { overscroll-behavior: none; }
   .fab { width: 58px; }
   #toolbar .player-hud { padding: 0 2px; }
 }
+/* v0.3: battlefield-native menu and one compact information dock. */
+#battlefield { inset: 0; }
+#toolbar { --dock-height: 56px; height: calc(56px + var(--safe-bottom)); background: #101b26c9; backdrop-filter: blur(12px); z-index: 4; padding-top: 4px; padding-bottom: calc(4px + var(--safe-bottom)); }
+#toolbar > button { min-width: 44px; min-height: 44px; }
+#toolbar #current { flex: 1; min-width: 0; }
+#toolbar #current strong { font-size: 14px; white-space: nowrap; }
+#toolbar #current strong span { display: inline; }
+#toolbar #current .stats { font-size: 12px; }
+#toolbar #turn-info { flex: 0 1 auto; padding: 0 4px; }
+#round { font-size: 13px; }
+#help { display: none !important; }
+#controls { position: static; }
+.fab { width: auto; min-width: 72px; height: 44px; padding: 4px 8px; font-size: 14px; border-radius: 10px; }
+#stack { position: absolute; right: auto; bottom: auto; z-index: 3; min-width: 0; width: max-content; max-width: calc(100vw - 32px); gap: 6px; padding: 6px; border-radius: 16px; border-color: var(--team); animation: menu-enter 240ms ease-out; transform-origin: center; }
+#stack:has([data-action="move"]), #stack:has([data-action="action"]) { flex-direction: row; }
+#stack button { text-align: center; min-width: 64px; white-space: nowrap; }
+#stack::before { content: ''; position: absolute; top: -12px; left: 50%; height: 12px; width: 1px; background: var(--team); opacity: .5; }
+#cancel-zone { position: absolute; inset: 0 84px 0 0; border-radius: 0; background: #203b50; border: 0; border-top: 2px solid #9bc7f0; padding-bottom: var(--safe-bottom); font-weight: 600; font-size: 14px; }
+.aiming #current, .aiming #turn-info, .aiming #opponent-toggle, .aiming #menu { visibility: hidden; }
+.aiming #controls { margin-left: auto; z-index: 1; }
+.cancel-armed #cancel-zone { background: #61333b; border-color: #efaaa2; }
+#opponent { z-index: 2; top: auto; bottom: calc(68px + var(--safe-bottom)); left: 16px; max-width: calc(100vw - 32px); }
+#opponent-close { width: 44px; min-height: 44px; }
+#hint { bottom: calc(70px + var(--safe-bottom)); }
+.future-modes { display: flex; gap: 8px; margin-top: 10px; }
+.future-modes button { flex: 1; font-size: 14px; }
+.future-modes small { display: block; margin-top: 4px; font-size: 12px; }
+.settings-entry { width: 100%; margin-top: 12px; }
+#panel .row { flex-wrap: wrap; }
+#panel p { font-size: 16px; }
+#overlay { z-index: 10; }
+@keyframes menu-enter { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
+@media (max-width: 380px) {
+ #toolbar { gap: 0; padding-left: 4px; padding-right: 4px; }
+ #toolbar #current strong { font-size: 12px; }
+ #toolbar #current strong span { display: block; }
+ #toolbar #current .stats { font-size: 12px; }
+ #toolbar #turn-info { padding: 0 2px; }
+ #toolbar #opponent-toggle { font-size: 12px; padding: 4px; }
+ .fab { min-width: 64px; font-size: 12px; }
+ #cancel-zone { right: 72px; }
+ #panel { padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { #stack { animation: none; } }
