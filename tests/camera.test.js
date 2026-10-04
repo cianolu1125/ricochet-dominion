@@ -30,10 +30,17 @@ test("camera is aspect-fit on small phone tablet and desktop sizes", () => {
     assert.equal(c.width / s.width, c.height / s.height);
   }
 });
-test('full canvas camera keeps starting vanguard above overlay HUD at 320x568',async()=>{
+test('full canvas camera keeps every map edge visible at 320x568',async()=>{
  const { battlefieldViewport }=await import('../src/view.js');
  const s=createGame(14,'phone');
  const v=battlefieldViewport(s,320,568,64);
- assert.ok(v.y+(s.players[1].pos.y+1)*v.tile<=504);
+ assert.ok(v.y+v.height<=564);
+ assert.ok(v.x+v.width<=316);
  assert.ok(v.x>=0 && v.y>=0);
+});
+
+test('phone camera uses the full width with only a four pixel rim',()=>{
+ const s=createGame(14,'phone'),v=V.battlefieldViewport(s,390,844,64);
+ assert.equal(v.x,4);assert.equal(v.width,382);
+ assert.ok(v.y+v.height<=840);
 });

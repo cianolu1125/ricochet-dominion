@@ -5,7 +5,7 @@ import { Window } from "happy-dom";
 import { build } from "esbuild";
 import * as E from "../src/engine.js";
 import { battlefieldViewport } from "../src/view.js";
-async function setup(width = 390, height = 844, touch = true) {
+async function setup(width = 390, height = 844, touch = true, reduceMotion = false) {
   const b = await build({
     entryPoints: ["src/main.js"],
     bundle: true,
@@ -28,7 +28,7 @@ async function setup(width = 390, height = 844, touch = true) {
     ),
   );
   w.matchMedia = (q) => ({
-    matches: q.includes("pointer") ? touch : false,
+    matches: q.includes("pointer") ? touch : q.includes("reduced-motion") ? reduceMotion : false,
     addEventListener() {},
   });
   Object.defineProperty(w, "innerWidth", { value: width, writable: true });
@@ -40,6 +40,7 @@ async function setup(width = 390, height = 844, touch = true) {
   let frames = [],
     time = 0,
     tool;
+  w.performance.now = () => time;
   w.requestAnimationFrame = (f) => {
     frames.push(f);
     return 1;
@@ -114,7 +115,8 @@ for (const [width, height, touch] of [
       a.click("#fab");
       assert.equal(a.read().phase, "HANDOFF");
       a.click('[data-panel="ready"]');
-      a.tick(400);
+      a.tick(450);
+      a.tick(600);
       assert.equal(a.read().current, 2);
       const before = a.read();
       a.w.innerWidth = height;
@@ -228,5 +230,30 @@ test('redeploy selection survives Settings and language switching',async()=>{
  const r=a.canvas.getBoundingClientRect(),view=battlefieldViewport(s,r.width,r.height,64),target=s.towers.find(t=>t.owner===1);
  a.canvas.dispatchEvent(new a.w.PointerEvent('pointerdown',{pointerId:4,button:0,clientX:view.x+(target.pos.x+.5)*view.tile,clientY:view.y+(target.pos.y+.5)*view.tile,bubbles:true}));
  assert.equal(a.read().actionAvailable,false);assert.ok(a.read().towers.some(t=>t.owner===1 && t.pos.x===8 && t.pos.y===25));
+ }finally{await a.close();}
+});
+
+test('new turn settlement waits for rotation and controls wait for effects',async()=>{
+ const a=await setup();try{
+ a.click('[data-panel="start"]');const s=E.createGame();
+ const blue=s.towers.find(t=>t.owner===2);blue.stage=0;
+ a.w.useFixtureForTest(s);a.click('#fab');const before=a.read();
+ a.click('[data-panel="ready"]');
+ assert.equal(a.read().phase,'HANDOFF');assert.deepEqual(a.read().towers,before.towers);
+ a.tick(200);assert.equal(a.read().phase,'HANDOFF');assert.deepEqual(a.read().towers,before.towers);
+ a.tick(450);assert.equal(a.read().phase,'IDLE');assert.ok(a.read().towers.find(t=>t.owner===2).stage>0);
+ assert.equal(a.w.document.querySelector('#stack').hidden,true);
+ assert.equal(a.w.document.querySelector('#fab').disabled,true);
+ a.tick(600);assert.equal(a.w.document.querySelector('#stack').hidden,false);assert.equal(a.w.document.querySelector('#fab').disabled,false);
+ }finally{await a.close();}
+});
+
+// Disabling camera rotation must not bypass the outpost growth presentation lock.
+test('reduced motion still waits for outpost growth effects before input',async()=>{
+ const a=await setup(390,844,true,true);try{
+ a.click('[data-panel="start"]');const s=E.createGame();s.towers.find(t=>t.owner===2).stage=0;a.w.useFixtureForTest(s);
+ a.click('#fab');a.click('[data-panel="ready"]');assert.equal(a.read().phase,'IDLE');
+ a.tick(150);assert.equal(a.w.document.querySelector('#fab').disabled,true);assert.equal(a.w.document.querySelector('#stack').hidden,true);
+ a.tick(400);assert.equal(a.w.document.querySelector('#fab').disabled,false);assert.equal(a.w.document.querySelector('#stack').hidden,false);
  }finally{await a.close();}
 });
