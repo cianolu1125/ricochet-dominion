@@ -1,3 +1,5 @@
+import { refreshClaims } from "./claims.js";
+import { paintTargets } from "./charge.js";
 import { fact } from "./feedback-events.js";
 import { CONFIG, NAMES, PROFILES } from "./config.js";
 export const enemy = (p) => 3 - p;
@@ -19,7 +21,12 @@ export function log(s, text) {
   s.events = s.events.slice(-8);
 }
 export function createGame(maxRounds = 14, profile = "phone") {
-  if (!CONFIG.rounds.includes(maxRounds) || !PROFILES[profile])
+  if (
+    !Number.isInteger(maxRounds) ||
+    maxRounds < 1 ||
+    maxRounds > 100 ||
+    !PROFILES[profile]
+  )
     throw Error("Invalid match configuration");
   const [width, height] = PROFILES[profile];
   const s = {
@@ -42,12 +49,11 @@ export function createGame(maxRounds = 14, profile = "phone") {
     activeBody: null,
     relay: null,
     charge: 0,
+    visitedRelayTowerIds: new Set(),
     moveVisited: [],
     committed: false,
     nextId: 0,
     winner: null,
-    overtime: false,
-    overtimeStart: null,
     events: [],
     eventId: 0,
   };
@@ -92,12 +98,25 @@ export function counts(s) {
   return a;
 }
 export function protectedOwner(s, i) {
-  return s.towers.find((t) => t.protected.includes(i))?.owner || 0;
+  return (
+    s.towers.find((t) => s.cells[i] === t.owner && t.protected.includes(i))
+      ?.owner || 0
+  );
 }
 export function recompute(s) {
   s.protectedBy = Array.from({ length: s.cells.length }, () => []);
-  for (const t of s.towers)
-    for (const i of t.protected) s.protectedBy[i].push(t.id);
+  for (const t of s.towers) {
+    t.protected = [];
+    for (let y = t.pos.y - t.stage; y <= t.pos.y + t.stage; y++)
+      for (let x = t.pos.x - t.stage; x <= t.pos.x + t.stage; x++)
+        if (inside(s, { x, y })) {
+          const i = index(s, { x, y });
+          if (s.cells[i] === t.owner) {
+            t.protected.push(i);
+            s.protectedBy[i].push(t.id);
+          }
+        }
+  }
   s.stability = s.cells.map((c) => (c ? "temporary" : null));
   for (const owner of [1, 2]) {
     const q = [],
@@ -119,9 +138,7 @@ export function recompute(s) {
         }
     }
   }
-  s.claims = s.claims.filter((c) =>
-    c.sources.some((id) => s.towers.some((t) => t.id === id)),
-  );
+  refreshClaims(s, neighbors);
 }
 export function neighbors(s, i) {
   const x = i % s.width,
@@ -163,7 +180,9 @@ export function removeTower(s, t) {
   recompute(s);
 }
 export function growTowers(s, owner) {
-  for (const t of s.towers.filter((t) => t.owner === owner && t.stage < 2)) {
+  for (const t of s.towers
+    .filter((t) => t.owner === owner && t.stage < 2)
+    .sort((a, b) => a.id - b.id)) {
     t.stage++;
     expand(s, t);
   }
@@ -224,25 +243,17 @@ export function buildTower(s, slot) {
   expand(s, t);
   recompute(s);
   if (claimed) {
-    const existing = s.claims.find(
-      (c) =>
-        c.captor === s.current &&
-        c.target === target &&
-        c.cells.some((i) => claimed.includes(i)),
-    );
-    if (existing) {
-      existing.cells = [...new Set([...existing.cells, ...claimed])];
-      existing.sources.push(t.id);
-    } else
-      s.claims.push({
-        id: ++s.nextId,
-        captor: s.current,
-        target,
-        cells: claimed,
-        sources: [t.id],
-        createdTurn: s.turnIndex,
-      });
+    s.claims.push({
+      id: ++s.nextId,
+      captor: s.current,
+      target,
+      cells: claimed,
+      sources: [t.id],
+      createdTurn: s.turnIndex,
+      dueTurn: s.turnIndex + 2,
+    });
   }
+  recompute(s);
   s.actionAvailable = false;
   log(s, `防御塔 ${slot} 已部署${claimed ? " · 断粮区域待吞并" : ""}`);
   return true;
@@ -273,6 +284,8 @@ export function chooseAim(s, kind) {
   s.relay = null;
   s.committed = false;
   s.moveVisited = [];
+  s.visitedRelayTowerIds = new Set();
+  for (const t of s.towers) t.relayUsed = false;
   return true;
 }
 export function skip(s, kind) {
@@ -287,13 +300,20 @@ export function win(s, player, reason) {
   s.phase = "GAME_OVER";
   s.activeBody = null;
   s.relay = null;
+  s.visitedRelayTowerIds.clear();
+  for (const t of s.towers) t.relayUsed = false;
   log(s, player ? `${NAMES[player]}获胜` : "双方平局");
 }
 export function damage(s, owner) {
   if (s.winner) return false;
   s.players[owner].hp--;
-  const p=s.players[owner];
-  fact(s,{type:"damage",owner,...(s.feedbackPosition || p.world || {x:p.pos.x+.5,y:p.pos.y+.5})});
+  const p = s.players[owner];
+  fact(s, {
+    type: "damage",
+    owner,
+    ...(s.feedbackPosition ||
+      p.world || { x: p.pos.x + 0.5, y: p.pos.y + 0.5 }),
+  });
   log(s, `${NAMES[owner]} -1 HP`);
   if (s.players[owner].hp <= 0) win(s, enemy(owner), "hp");
   return true;
@@ -316,10 +336,34 @@ export function explode(s, owner, p, radius = 1) {
     }
   recompute(s);
 }
+export function paintMissile(s, owner, position, level) {
+  if (s.winner) return;
+  const targets = paintTargets(s, position, level),
+    shielded = [];
+  for (const i of targets) {
+    const protector = protectedOwner(s, i);
+    if (protector && protector !== owner) shielded.push(i);
+    else s.cells[i] = owner;
+  }
+  recompute(s);
+  if (level >= 2) {
+    const c = grid(s, position);
+    fact(s, {
+      type: "cross",
+      owner,
+      x: c.x + 0.5,
+      y: c.y + 0.5,
+      width: s.width,
+      height: s.height,
+      shielded,
+      charge: level,
+    });
+  }
+}
 export function siege(s, t, p) {
   if (s.winner) return;
   removeTower(s, t);
-  explode(s, s.current, p, 2);
+  paintMissile(s, s.current, p, 3);
 }
 function settleRound(s) {
   const c = counts(s);
@@ -328,23 +372,13 @@ function settleRound(s) {
       win(s, p, "territory");
       return;
     }
-  if (s.overtime) {
-    const d = c[1] - s.overtimeStart[1] - (c[2] - s.overtimeStart[2]);
-    win(s, d === 0 ? 0 : d > 0 ? 1 : 2, "overtime");
-    return;
-  }
   if (s.round < s.maxRounds) return;
   const d =
     c[1] - c[2] ||
     s.players[1].hp - s.players[2].hp ||
     s.towers.filter((t) => t.owner === 1).length -
       s.towers.filter((t) => t.owner === 2).length;
-  if (d) win(s, d > 0 ? 1 : 2, "score");
-  else {
-    s.overtime = true;
-    s.overtimeStart = c;
-    log(s, "完全同分 · 加时一轮");
-  }
+  win(s, d === 0 ? 0 : d > 0 ? 1 : 2, d ? "score" : "draw");
 }
 export function endTurn(s) {
   if (s.phase !== "IDLE") return false;
@@ -357,6 +391,8 @@ export function endTurn(s) {
   s.phase = "HANDOFF";
   s.relay = null;
   s.charge = 0;
+  s.visitedRelayTowerIds.clear();
+  for (const t of s.towers) t.relayUsed = false;
   return true;
 }
 export function beginTurn(s) {
@@ -364,13 +400,31 @@ export function beginTurn(s) {
   s.turnIndex++;
   s.players[s.current].turns++;
   recompute(s);
-  for (const c of s.claims.filter((c) => c.captor === s.current)) {
+  const due = s.claims.filter(
+    (c) =>
+      c.captor === s.current && (c.dueTurn ?? c.createdTurn + 2) <= s.turnIndex,
+  );
+  const converted = [];
+  for (const c of due)
     for (const i of c.cells)
-      if (s.cells[i] === c.target && s.stability[i] === "temporary")
+      if (
+        s.cells[i] === c.target &&
+        s.stability[i] === "temporary" &&
+        protectedOwner(s, i) !== c.target
+      ) {
         s.cells[i] = c.captor;
-    recompute(s);
-  }
-  s.claims = s.claims.filter((c) => c.captor !== s.current);
+        converted.push(i);
+      }
+  if (converted.length)
+    fact(s, {
+      type: "convert",
+      cells: converted,
+      size: converted.length,
+      x: s.players[s.current].pos.x + 0.5,
+      y: s.players[s.current].pos.y + 0.5,
+    });
+  s.claims = s.claims.filter((c) => !due.includes(c));
+  recompute(s);
   growTowers(s, s.current);
   recompute(s);
   for (const t of s.towers.filter((t) => t.owner === s.current))

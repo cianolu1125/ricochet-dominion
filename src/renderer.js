@@ -22,7 +22,10 @@ export function render(canvas, s, v) {
     tile = v.viewport?.tile || width / s.width;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
-  ctx.translate((v.viewport?.x || 0)+(v.shake?.x||0), (v.viewport?.y || 0)+(v.shake?.y||0));
+  ctx.translate(
+    (v.viewport?.x || 0) + (v.shake?.x || 0),
+    (v.viewport?.y || 0) + (v.shake?.y || 0),
+  );
   ctx.scale(tile, tile);
   ctx.translate(s.width / 2, s.height / 2);
   ctx.rotate(v.rotation || 0);
@@ -60,15 +63,36 @@ export function render(canvas, s, v) {
             ),
           )
         : 1;
-      const show=transition?tilePresentation(transition,v.time,v.reduced):{progress:1,owner:o,lift:0,scale:1};
-      ctx.save();ctx.translate(p.x,p.y);ctx.scale(show.scale,show.scale);ctx.translate(-p.x,-p.y-show.lift*(transition?.soft?.045:.10));
-      const temporary=transition&&show.progress<.7?transition.fromTemporary:s.stability[i]==='temporary';
-      const targetAlpha=s.stability[i]==='temporary'?.58:1,fromAlpha=transition?.fromTemporary?.58:1;
-      if(show.lift>0){ctx.globalAlpha=show.lift*.3;ctx.fillStyle='#020a12';ctx.fillRect(p.x-.48,p.y-.45+show.lift*.14,.96,.96);}
-      ctx.globalAlpha = fromAlpha+(targetAlpha-fromAlpha)*progress;
-      ctx.fillStyle = transition ? transition.wave&&!v.reduced?FILL[show.owner]:blend(transition.from,o,progress) : FILL[o];
-      ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
-      if(show.lift>0){ctx.strokeStyle=(TEAM[show.owner]||'#9bc7f0')+'55';ctx.lineWidth=.015;ctx.strokeRect(p.x-.48,p.y-.48,.96,.96);}
+      const show = transition
+        ? tilePresentation(transition, v.time, v.reduced)
+        : { progress: 1, owner: o, lift: 0, scale: 1 };
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.scale(show.scale, show.scale);
+      ctx.translate(-p.x, -p.y - show.lift * (transition?.soft ? 0.045 : 0.1));
+      const temporary =
+        transition && show.progress < 0.7
+          ? transition.fromTemporary
+          : s.stability[i] === "temporary";
+      const targetAlpha = s.stability[i] === "temporary" ? 0.58 : 1,
+        fromAlpha = transition?.fromTemporary ? 0.58 : 1;
+      if (show.lift > 0) {
+        ctx.globalAlpha = show.lift * 0.3;
+        ctx.fillStyle = "#020a12";
+        ctx.fillRect(p.x - 0.48, p.y - 0.45 + show.lift * 0.14, 0.96, 0.96);
+      }
+      ctx.globalAlpha = fromAlpha + (targetAlpha - fromAlpha) * progress;
+      ctx.fillStyle = transition
+        ? transition.wave && !v.reduced
+          ? FILL[show.owner]
+          : blend(transition.from, o, progress)
+        : FILL[o];
+      ctx.fillRect(p.x - 0.484, p.y - 0.484, 0.968, 0.968);
+      if (show.lift > 0) {
+        ctx.strokeStyle = (TEAM[show.owner] || "#9bc7f0") + "55";
+        ctx.lineWidth = 0.015;
+        ctx.strokeRect(p.x - 0.48, p.y - 0.48, 0.96, 0.96);
+      }
       ctx.globalAlpha = 1;
       if (temporary) {
         ctx.strokeStyle = TEAM[o] + "36";
@@ -81,13 +105,44 @@ export function render(canvas, s, v) {
         ctx.stroke();
       }
       if (s.protectedBy[i]?.length) {
-        ctx.strokeStyle = TEAM[o] + "75";
+        ctx.fillStyle = TEAM[o] + "09";
+        ctx.fillRect(p.x - 0.46, p.y - 0.46, 0.92, 0.92);
+        ctx.strokeStyle = TEAM[o] + "85";
         ctx.lineWidth = 0.035;
-        ctx.strokeRect(p.x - 0.38, p.y - 0.38, 0.76, 0.76);
+        ctx.beginPath();
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy,
+            j = ny * s.width + nx;
+          if (
+            nx >= 0 &&
+            nx < s.width &&
+            ny >= 0 &&
+            ny < s.height &&
+            s.cells[j] === o &&
+            s.protectedBy[j]?.length
+          )
+            continue;
+          const h = pt({ x: x + 0.5 + dx * 0.48, y: y + 0.5 + dy * 0.48 });
+          if (dx) {
+            ctx.moveTo(h.x, h.y - 0.48);
+            ctx.lineTo(h.x, h.y + 0.48);
+          } else {
+            ctx.moveTo(h.x - 0.48, h.y);
+            ctx.lineTo(h.x + 0.48, h.y);
+          }
+        }
+        ctx.stroke();
       }
       if (pending.has(i)) {
         ctx.strokeStyle = TEAM[pending.get(i)];
-        ctx.globalAlpha = 0.35 + (0.3 * (Math.sin(v.reduced ? 0 : v.time / 230) + 1)) / 2;
+        ctx.globalAlpha =
+          0.35 + (0.3 * (Math.sin(v.reduced ? 0 : v.time / 310) + 1)) / 2;
         ctx.lineWidth = 0.07;
         ctx.beginPath();
         for (const [dx, dy] of [
@@ -138,8 +193,11 @@ export function render(canvas, s, v) {
     ctx.restore();
   }
   for (const t of s.towers) {
-    const building=v.effects.find(e=>e.type==='build'&&e.x===t.pos.x+.5&&e.y===t.pos.y+.5);
-    if(building&&v.time-building.born<140&&!v.reduced)continue;
+    const building = v.effects.find(
+      (e) =>
+        e.type === "build" && e.x === t.pos.x + 0.5 && e.y === t.pos.y + 0.5,
+    );
+    if (building && v.time - building.born < 140 && !v.reduced) continue;
     const p = pt({ x: t.pos.x + 0.5, y: t.pos.y + 0.5 }),
       selected =
         v.select &&
@@ -148,12 +206,17 @@ export function render(canvas, s, v) {
     ctx.fillRect(p.x - 0.35, p.y - 0.35, 0.7, 0.7);
     ctx.strokeStyle = TEAM[t.owner];
     ctx.lineWidth = 0.065;
-    ctx.setLineDash(t.relayUsed ? [0.12, 0.1] : []);
+    ctx.setLineDash([]);
     ctx.strokeRect(p.x - 0.33, p.y - 0.33, 0.66, 0.66);
     ctx.setLineDash([]);
-    if (!t.relayUsed) {
-      ctx.fillStyle = TEAM[t.owner] + "77";
-      ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
+    ctx.fillStyle = TEAM[t.owner] + "77";
+    ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
+    if (s.visitedRelayTowerIds.has(t.id)) {
+      ctx.strokeStyle = TEAM[t.owner] + "66";
+      ctx.lineWidth = 0.025;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 0.52, 0.25, Math.PI * 1.65);
+      ctx.stroke();
     }
     for (let n = 0; n < t.stage; n++) {
       const r = 0.43 + n * 0.11;
@@ -200,10 +263,18 @@ export function render(canvas, s, v) {
     }
     ctx.lineWidth = 0.08;
     circle(p, 0.34, "#0d1c29");
-    const hurt=v.effects.find(e=>e.type==='damage'&&e.owner===owner&&v.time-e.born<110);
-    ctx.lineWidth=hurt&&!v.reduced?.08+Math.sin((v.time-hurt.born)*.3)*.02:.08;
-    circle(p, 0.3, hurt?'#eff8ff':TEAM[owner], true);
-    if(owner!==s.current&&v.opponentFocus){ctx.lineWidth=.025;circle(p,.48,TEAM[owner]+'55',true);}
+    const hurt = v.effects.find(
+      (e) => e.type === "damage" && e.owner === owner && v.time - e.born < 110,
+    );
+    ctx.lineWidth =
+      hurt && !v.reduced
+        ? 0.08 + Math.sin((v.time - hurt.born) * 0.3) * 0.02
+        : 0.08;
+    circle(p, 0.3, hurt ? "#eff8ff" : TEAM[owner], true);
+    if (owner !== s.current && v.opponentFocus) {
+      ctx.lineWidth = 0.025;
+      circle(p, 0.48, TEAM[owner] + "55", true);
+    }
     const flashed = v.effects.some(
       (e) => e.type === "damage" && e.owner === owner && v.time - e.born < 90,
     );
@@ -242,9 +313,16 @@ export function render(canvas, s, v) {
       TEAM[s.current] + "a0",
       true,
     );
-    if(s.phase.startsWith('MISSILE')&&s.charge>0) {
-      for(let n=0;n<Math.min(2,s.charge);n++)circle(p,.4+n*.1,TEAM[s.current]+'80',true);
-      ctx.save();ctx.translate(p.x+.8,p.y-.6);ctx.rotate(-(v.rotation||0));ctx.fillStyle=TEAM[s.current];ctx.font='700 .5px system-ui';ctx.fillText(['','Ⅰ','Ⅱ','Ⅲ'][s.charge],0,0);ctx.restore();
+    if (s.phase.startsWith("MISSILE") && s.charge > 0) {
+      for (let n = 0; n < Math.min(2, s.charge); n++)
+        circle(p, 0.4 + n * 0.1, TEAM[s.current] + "80", true);
+      ctx.save();
+      ctx.translate(p.x + 0.8, p.y - 0.6);
+      ctx.rotate(-(v.rotation || 0));
+      ctx.fillStyle = TEAM[s.current];
+      ctx.font = "700 .5px system-ui";
+      ctx.fillText(["", "Ⅰ", "Ⅱ", "Ⅲ"][s.charge], 0, 0);
+      ctx.restore();
     }
     if (v.aim) {
       const aim = v.aim,
@@ -271,7 +349,11 @@ export function render(canvas, s, v) {
       ctx.fill();
       ctx.restore();
       const hit = previewImpact(s, aim, aim.power);
-      if (hit && Math.hypot(hit.x - origin(s).x, hit.y - origin(s).y) <= 1 + aim.power * 4) {
+      if (
+        hit &&
+        Math.hypot(hit.x - origin(s).x, hit.y - origin(s).y) <=
+          1 + aim.power * 4
+      ) {
         const hp = pt(hit);
         ctx.lineWidth = 0.05;
         circle(hp, 0.22, "#eaf2f6", true);
@@ -289,11 +371,15 @@ export function render(canvas, s, v) {
   }
   const m = s.activeBody;
   if (m) {
-    for (let n = Math.max(0,m.trail.length-(m.charge===3?10:7)); n < m.trail.length; n++) {
-      ctx.globalAlpha=(n+1)/m.trail.length*.5;
-      circle(pt(m.trail[n]), .04+(m.charge||0)*.016, TEAM[s.current]);
+    for (
+      let n = Math.max(0, m.trail.length - (m.charge === 3 ? 10 : 7));
+      n < m.trail.length;
+      n++
+    ) {
+      ctx.globalAlpha = ((n + 1) / m.trail.length) * 0.5;
+      circle(pt(m.trail[n]), 0.04 + (m.charge || 0) * 0.016, TEAM[s.current]);
     }
-    ctx.globalAlpha=1;
+    ctx.globalAlpha = 1;
     if (m.kind === "missile") {
       const p = pt(m),
         f = pt({ x: m.x + m.vx, y: m.y + m.vy });
@@ -319,6 +405,6 @@ export function render(canvas, s, v) {
       }
     }
   }
-  drawEffects(ctx,v.effects,v.time,pt,TEAM,v.reduced,v.rotation||0);
+  drawEffects(ctx, v.effects, v.time, pt, TEAM, v.reduced, v.rotation || 0);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

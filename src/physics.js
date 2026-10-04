@@ -1,4 +1,5 @@
 import { fact, feedbackId } from "./feedback-events.js";
+import { chargeFromRelays, chargeRadius } from "./charge.js";
 import { CONFIG } from "./config.js";
 import * as E from "./engine.js";
 const AIM = ["MOVE_AIM", "MOVE_RELAY_AIM", "MISSILE_AIM", "MISSILE_RELAY_AIM"];
@@ -184,7 +185,14 @@ export function carryAlong(s, m, a, b) {
   for (const p of traverseCells(s, a, b)) {
     s.players[owner].pos = p;
     const own = s.cells[E.index(s, p)] === owner;
-    if (!m.wasOwn && own) { const previous=s.feedbackGroup;s.feedbackGroup=null;s.feedbackPosition={x:p.x+.5,y:p.y+.5};E.damage(s, owner);s.feedbackPosition=null;s.feedbackGroup=previous; }
+    if (!m.wasOwn && own) {
+      const previous = s.feedbackGroup;
+      s.feedbackGroup = null;
+      s.feedbackPosition = { x: p.x + 0.5, y: p.y + 0.5 };
+      E.damage(s, owner);
+      s.feedbackPosition = null;
+      s.feedbackGroup = previous;
+    }
     if (s.winner) return;
     m.wasOwn = own;
   }
@@ -215,7 +223,11 @@ export function releaseBefore(s, m, t) {
     cells.find((p) => !E.same(p, t.pos) && E.legalLanding(s, p, owner)) ||
     E.nearestLanding(s, E.grid(s, m), owner);
   const own = s.cells[E.index(s, p)] === owner;
-  if (!m.wasOwn && own) {s.feedbackPosition={x:p.x+.5,y:p.y+.5};E.damage(s, owner);s.feedbackPosition=null;}
+  if (!m.wasOwn && own) {
+    s.feedbackPosition = { x: p.x + 0.5, y: p.y + 0.5 };
+    E.damage(s, owner);
+    s.feedbackPosition = null;
+  }
   if (s.winner) return;
   s.players[owner].pos = p;
   delete s.players[owner].world;
@@ -232,19 +244,24 @@ function finish(s, m, blast = true, center = null) {
     const owner = m.carried,
       landing = E.nearestLanding(s, p, owner),
       own = s.cells[E.index(s, landing)] === owner;
-    if (!m.wasOwn && own) {s.feedbackPosition={x:landing.x+.5,y:landing.y+.5};E.damage(s, owner);s.feedbackPosition=null;}
+    if (!m.wasOwn && own) {
+      s.feedbackPosition = { x: landing.x + 0.5, y: landing.y + 0.5 };
+      E.damage(s, owner);
+      s.feedbackPosition = null;
+    }
     if (s.winner) return;
     s.players[owner].pos = landing;
     delete s.players[owner].world;
     if (s.winner) return;
     m.carried = null;
   }
-  if (m.kind === "missile" && blast)
-    E.explode(s, s.current, p, m.charge >= 2 ? 2 : 1);
+  if (m.kind === "missile" && blast) E.paintMissile(s, s.current, p, m.charge);
   s.activeBody = null;
   s.relay = null;
   s.phase = "IDLE";
   s.committed = false;
+  s.visitedRelayTowerIds.clear();
+  for (const t of s.towers) t.relayUsed = false;
 }
 export function cancelAim(s) {
   if (!AIM.includes(s.phase)) return false;
@@ -256,10 +273,15 @@ export function cancelAim(s) {
         charge: s.charge,
         carried: null,
       };
-    s.feedbackGroup=feedbackId();
+    s.feedbackGroup = feedbackId();
     finish(s, m, true);
-    fact(s,{type:m.kind==='missile'?'blast':'land',...p,radius:m.charge>=2?2:1});
-    s.feedbackGroup=null;
+    fact(s, {
+      type: m.kind === "missile" ? "blast" : "land",
+      ...p,
+      radius: chargeRadius(m.charge),
+      charge: m.charge,
+    });
+    s.feedbackGroup = null;
   } else {
     s.phase = "IDLE";
     s.relay = null;
@@ -272,11 +294,14 @@ export function stepBody(s, dt) {
     steps = Math.max(1, Math.ceil(dt / CONFIG.physics.step));
   for (let n = 0; n < steps && s.activeBody && !s.winner; n++)
     tick(s, dt / steps, events);
-  s.feedbackGroup=null;
+  s.feedbackGroup = null;
   return events;
 }
 function tick(s, dt, events) {
-  const emit=(event)=>{const f=fact(s,event);events.push(f);};
+  const emit = (event) => {
+    const f = fact(s, event);
+    events.push(f);
+  };
   const m = s.activeBody,
     speed = Math.hypot(m.vx, m.vy),
     next = Math.max(0, speed - CONFIG.physics.friction * dt),
@@ -297,13 +322,13 @@ function tick(s, dt, events) {
       dy = m.vy * left,
       hit = collision(s, m, dx, dy);
     if (!hit) {
-      s.feedbackGroup=null;
+      s.feedbackGroup = null;
       advance(s, m, dx, dy);
       break;
     }
-    s.feedbackGroup=null;
+    s.feedbackGroup = null;
     advance(s, m, dx * hit.t, dy * hit.t);
-    s.feedbackGroup=feedbackId();
+    s.feedbackGroup = feedbackId();
     if (s.winner) return;
     left *= 1 - hit.t;
     if (hit.type === "role" && m.kind === "missile") {
@@ -311,16 +336,6 @@ function tick(s, dt, events) {
         foe = { ...s.players[target].pos },
         own = E.hitRole(s, target);
       if (s.winner) return;
-      if (m.charge === 0) {
-        finish(s, m, true, foe);
-        emit({
-          type: "blast",
-          x: foe.x + 0.5,
-          y: foe.y + 0.5,
-          radius: 1,
-        });
-        return;
-      }
       m.carried = target;
       m.wasOwn = own;
       emit({ type: "carry", x: m.x, y: m.y });
@@ -333,7 +348,9 @@ function tick(s, dt, events) {
       const t = hit.tower,
         ready =
           t.owner === s.current &&
-          (m.kind === "move" ? !s.moveVisited.includes(t.id) : !t.relayUsed);
+          (m.kind === "move"
+            ? !s.moveVisited.includes(t.id)
+            : !s.visitedRelayTowerIds.has(t.id));
       if (ready) {
         if (m.carried) releaseBefore(s, m, t);
         if (s.winner) return;
@@ -343,12 +360,20 @@ function tick(s, dt, events) {
           delete s.players[s.current].world;
         } else {
           t.relayUsed = true;
-          s.charge = Math.min(3, m.charge + 1);
+          s.visitedRelayTowerIds.add(t.id);
+          s.charge = chargeFromRelays(s.visitedRelayTowerIds.size);
         }
         s.activeBody = null;
         s.relay = { pos: { ...t.pos }, id: t.id };
         s.phase = m.kind === "move" ? "MOVE_RELAY_AIM" : "MISSILE_RELAY_AIM";
-        emit({ type: m.kind === "move" ? "capture" : "charge", charge:s.charge,maxed:m.charge===3, x: t.pos.x + 0.5, y: t.pos.y + 0.5 });
+        emit({
+          type: m.kind === "move" ? "capture" : "charge",
+          charge: s.charge,
+          relayCount: s.visitedRelayTowerIds.size,
+          maxed: m.charge === s.charge,
+          x: t.pos.x + 0.5,
+          y: t.pos.y + 0.5,
+        });
         E.log(
           s,
           `${m.kind === "move" ? "移动" : "飞弹"}中继 · 塔 ${t.slot}${m.kind === "missile" ? " · Charge " + s.charge : ""}`,
@@ -357,9 +382,19 @@ function tick(s, dt, events) {
       }
       if (t.owner !== s.current && m.kind === "missile" && m.charge === 3) {
         const p = { ...t.pos };
-        E.siege(s, t, p);
-        finish(s, m, false, p);
-        emit({ type: "siege", targetOwner:t.owner, x: p.x + 0.5, y: p.y + 0.5, radius: 2 });
+        // Release using pre-paint territory while the target still exists.
+        if (m.carried) releaseBefore(s, m, t);
+        if (s.winner) return;
+        E.removeTower(s, t);
+        finish(s, m, true, p);
+        if (s.winner) return;
+        emit({
+          type: "siege",
+          targetOwner: t.owner,
+          x: p.x + 0.5,
+          y: p.y + 0.5,
+          radius: 2,
+        });
         return;
       }
     }
@@ -380,14 +415,15 @@ function tick(s, dt, events) {
   m.trail = m.trail.slice(-18);
   if (Math.hypot(m.vx, m.vy) < CONFIG.physics.stopSpeed) {
     const p = E.grid(s, m);
-    s.feedbackGroup=feedbackId();
+    s.feedbackGroup = feedbackId();
     finish(s, m);
     if (s.winner) return;
     emit({
       type: m.kind === "move" ? "land" : "blast",
       x: p.x + 0.5,
       y: p.y + 0.5,
-      radius: m.charge >= 2 ? 2 : 1,
+      radius: chargeRadius(m.charge),
+      charge: m.charge,
     });
   }
 }

@@ -16,5 +16,9 @@ export function profileFor(width, height, touch) {
 // Canvas is the battlefield layout row: HUD height has already been excluded.
 export function battlefieldViewport(s, width, height) {
   const area = camera(s, Math.max(1, width - 8), Math.max(1, height - 8));
-  return {...area, x:(width-area.width)/2, y:(height-area.height)/2};
+  return {
+    ...area,
+    x: (width - area.width) / 2,
+    y: (height - area.height) / 2,
+  };
 }
