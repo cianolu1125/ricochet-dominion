@@ -105,37 +105,18 @@ export function render(canvas, s, v) {
         ctx.stroke();
       }
       if (s.protectedBy[i]?.length) {
-        ctx.fillStyle = TEAM[o] + "09";
-        ctx.fillRect(p.x - 0.46, p.y - 0.46, 0.92, 0.92);
-        ctx.strokeStyle = TEAM[o] + "85";
-        ctx.lineWidth = 0.035;
+        ctx.fillStyle = TEAM[o] + "0c";
+        ctx.fillRect(p.x - 0.44, p.y - 0.44, 0.88, 0.88);
+        ctx.strokeStyle = TEAM[o] + "48";
+        ctx.lineWidth = 0.018;
+        ctx.strokeRect(p.x - 0.43, p.y - 0.43, 0.86, 0.86);
+        ctx.strokeStyle = TEAM[o] + "b0";
+        ctx.lineWidth = 0.04;
         ctx.beginPath();
-        for (const [dx, dy] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = x + dx,
-            ny = y + dy,
-            j = ny * s.width + nx;
-          if (
-            nx >= 0 &&
-            nx < s.width &&
-            ny >= 0 &&
-            ny < s.height &&
-            s.cells[j] === o &&
-            s.protectedBy[j]?.length
-          )
-            continue;
-          const h = pt({ x: x + 0.5 + dx * 0.48, y: y + 0.5 + dy * 0.48 });
-          if (dx) {
-            ctx.moveTo(h.x, h.y - 0.48);
-            ctx.lineTo(h.x, h.y + 0.48);
-          } else {
-            ctx.moveTo(h.x - 0.48, h.y);
-            ctx.lineTo(h.x + 0.48, h.y);
-          }
+        for (const dx of [-1, 1]) for (const dy of [-1, 1]) {
+          ctx.moveTo(p.x + dx * 0.24, p.y + dy * 0.43);
+          ctx.lineTo(p.x + dx * 0.43, p.y + dy * 0.43);
+          ctx.lineTo(p.x + dx * 0.43, p.y + dy * 0.24);
         }
         ctx.stroke();
       }
@@ -271,6 +252,15 @@ export function render(canvas, s, v) {
         ? 0.08 + Math.sin((v.time - hurt.born) * 0.3) * 0.02
         : 0.08;
     circle(p, 0.3, hurt ? "#eff8ff" : TEAM[owner], true);
+    const healed = v.effects.find(e => e.type === "heal" && e.owner === owner && v.time - e.born < 500);
+    if (healed) {
+      const age = v.time - healed.born, strength = Math.min(1, age / 100) * Math.max(0, 1 - Math.max(0, age - 300) / 200);
+      ctx.save();
+      ctx.globalAlpha = strength * 0.8;
+      ctx.lineWidth = 0.045;
+      circle(p, 0.4, "#a1ebbd", true);
+      ctx.restore();
+    }
     if (owner !== s.current && v.opponentFocus) {
       ctx.lineWidth = 0.025;
       circle(p, 0.48, TEAM[owner] + "55", true);

@@ -1,5 +1,5 @@
 import { refreshClaims } from "./claims.js";
-import { paintTargets } from "./charge.js";
+import { paintTargets, crossTrace } from "./charge.js";
 import { fact } from "./feedback-events.js";
 import { CONFIG, NAMES, PROFILES } from "./config.js";
 export const enemy = (p) => 3 - p;
@@ -63,7 +63,7 @@ export function createGame(maxRounds = 14, profile = "phone") {
     const pos = desktop
       ? { x: owner === 1 ? 1 : width - 2, y: Math.floor(height / 2) }
       : { x: Math.floor(width / 2), y: owner === 1 ? height - 2 : 1 };
-    s.players[owner] = { hp: 10, pos, turns: owner === 1 ? 1 : 0 };
+    s.players[owner] = { hp: CONFIG.hp, maxHp: CONFIG.hp, pos, turns: owner === 1 ? 1 : 0 };
     for (let y = 0; y < height; y++)
       for (let x = 0; x < width; x++)
         if (
@@ -215,7 +215,7 @@ export function towerReason(s) {
   return "";
 }
 export function buildTower(s, slot) {
-  if (s.phase !== "IDLE" || !s.actionAvailable || towerReason(s)) return false;
+  if (s.winner || s.players[s.current].hp <= 0 || s.phase !== "IDLE" || !s.actionAvailable || towerReason(s)) return false;
   const own = s.towers.filter((t) => t.owner === s.current);
   if (own.length === 5 && !own.some((t) => t.slot === slot)) return false;
   const i = index(s, s.players[s.current].pos),
@@ -255,6 +255,7 @@ export function buildTower(s, slot) {
   }
   recompute(s);
   s.actionAvailable = false;
+  healPlayerFromDeployment(s, s.current);
   log(s, `防御塔 ${slot} 已部署${claimed ? " · 断粮区域待吞并" : ""}`);
   return true;
 }
@@ -318,11 +319,24 @@ export function damage(s, owner) {
   if (s.players[owner].hp <= 0) win(s, enemy(owner), "hp");
   return true;
 }
+// Territory status never changes ownership: neutral is not enemy land.
+export function isEnemyTerritory(s, owner, position = s.players[owner].pos) {
+  return s.cells[index(s, position)] === enemy(owner);
+}
 export function hitRole(s, owner) {
-  const p = s.players[owner];
-  const own = s.cells[index(s, p.pos)] === owner;
-  if (own) damage(s, owner);
-  return own;
+  const hostile = isEnemyTerritory(s, owner);
+  if (hostile) damage(s, owner);
+  return hostile;
+}
+function healPlayerFromDeployment(s, owner) {
+  const player = s.players[owner];
+  if (s.winner || player.hp <= 0) return;
+  const before = player.hp;
+  player.hp = Math.min(player.maxHp, before + CONFIG.deployHeal);
+  if (player.hp === before) return;
+  fact(s, {type: "heal", owner, amount: player.hp - before,
+    x: player.pos.x + 0.5, y: player.pos.y + 0.5});
+  log(s, `${NAMES[owner]} +1 HP`);
 }
 export function explode(s, owner, p, radius = 1) {
   if (s.winner) return;
@@ -338,8 +352,9 @@ export function explode(s, owner, p, radius = 1) {
 }
 export function paintMissile(s, owner, position, level) {
   if (s.winner) return;
+  const cross = level >= 2 ? crossTrace(s, position) : null;
   const targets = paintTargets(s, position, level),
-    shielded = [];
+    shielded = cross ? [...cross.shielded] : [];
   for (const i of targets) {
     const protector = protectedOwner(s, i);
     if (protector && protector !== owner) shielded.push(i);
@@ -356,6 +371,7 @@ export function paintMissile(s, owner, position, level) {
       width: s.width,
       height: s.height,
       shielded,
+      ends: cross.ends,
       charge: level,
     });
   }

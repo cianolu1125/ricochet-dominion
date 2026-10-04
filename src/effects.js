@@ -113,7 +113,7 @@ export function drawEffects(
       ctx.strokeStyle = color;
       ctx.lineWidth = 0.045;
       ctx.globalAlpha = alpha * 0.8;
-      const ends = [
+      const ends = e.ends || [
         { x: 0.0, y: e.y },
         { x: e.width, y: e.y },
         { x: e.x, y: 0 },
@@ -145,6 +145,17 @@ export function drawEffects(
         ctx.lineWidth = 0.025;
         ctx.strokeRect(c.x - 0.4, c.y - 0.4, 0.8, 0.8);
       }
+    } else if (e.type === "heal") {
+      ctx.translate(p.x, p.y);
+      ctx.rotate(-rotation);
+      const appear = Math.min(1, age / 120), fade = Math.max(0, 1 - Math.max(0, age - 650) / 250);
+      ctx.globalAlpha = appear * fade;
+      ctx.fillStyle = "#7fe3aa";
+      ctx.font = "700 .5px system-ui";
+      ctx.textAlign = "center";
+      const scale = reduced ? 1 : 0.9 + appear * 0.1;
+      ctx.scale(scale, scale);
+      ctx.fillText("+1 HP", 0.85, reduced ? -0.65 : -0.5 - q * 0.8);
     } else if (e.type === "damage") {
       if (age < 210)
         ring(p.x, p.y, 0.34 + (age / 210) * 0.38, color, 1 - age / 210, 0.05);
