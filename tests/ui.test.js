@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { Window } from "happy-dom";
 import { build } from "esbuild";
+import * as E from "../src/engine.js";
+import { battlefieldViewport } from "../src/view.js";
 async function setup(width = 390, height = 844, touch = true) {
   const b = await build({
     entryPoints: ["src/main.js"],
@@ -10,6 +12,7 @@ async function setup(width = 390, height = 844, touch = true) {
     write: false,
     format: "iife",
     loader: { ".css": "empty" },
+    plugins: [{name:"fixture",setup(builder){builder.onLoad({filter:/src\/main\.js$/},async(args)=>({contents:(await readFile(args.path,"utf8"))+"\nwindow.useFixtureForTest=s=>{state=s;update();};",loader:"js"}));}}],
   });
   const w = new Window({
     url: "https://example.test",
@@ -96,20 +99,19 @@ for (const [width, height, touch] of [
     try {
       a.click('[data-panel="start"]');
       assert.equal(a.read().players[1].hp, 10);
-      a.click("#fab");
       assert.ok(a.w.document.querySelector('[data-action="move"]'));
       assert.ok(a.w.document.querySelector('[data-action="action"]'));
       a.click('[data-action="action"]');
       a.click('[data-action="missile"]');
       assert.equal(a.read().phase, "MISSILE_AIM");
-      a.click("#fab");
+      a.click("#cancel-zone");
       assert.equal(a.read().actionAvailable, true);
-      a.click("#fab");
+      a.click('[data-action="root"]');
       a.click('[data-action="move"]');
-      a.click('[data-action="skip-move"]');
-      assert.equal(a.read().moveAvailable, false);
+      assert.equal(a.read().phase, "MOVE_AIM");
+      a.click("#cancel-zone");
+      assert.equal(a.read().moveAvailable, true);
       a.click("#fab");
-      a.click('[data-action="end"]');
       assert.equal(a.read().phase, "HANDOFF");
       a.click('[data-panel="ready"]');
       a.tick(400);
@@ -147,9 +149,8 @@ for (const kind of ['move', 'missile'])
     const a = await setup();
     try {
       a.click('[data-panel="start"]');
-      a.click('#fab');
       a.click(`[data-action="${kind === 'move' ? 'move' : 'action'}"]`);
-      a.click(`[data-action="${kind === 'move' ? 'move-aim' : 'missile'}"]`);
+      if (kind === "missile") a.click('[data-action="missile"]');
       const event = (name, x, y) => a.canvas.dispatchEvent(new a.w.PointerEvent(name, { pointerId: 9, button: 0, clientX: x, clientY: y, bubbles: true }));
       event('pointerdown', 180, 200);
       event('pointerup', 180, 200);
@@ -161,3 +162,71 @@ for (const kind of ['move', 'missile'])
       assert.equal(kind === 'move' ? a.read().moveAvailable : a.read().actionAvailable, false);
     } finally { await a.close(); }
   });
+
+for (const kind of ['move', 'missile']) test(`${kind}: drop cancellation preserves turn token`, async () => {
+ const a = await setup();
+ try {
+ a.click('[data-panel="start"]');
+ a.click(`[data-action="${kind === 'move' ? 'move' : 'action'}"]`);
+ if(kind==='missile') a.click('[data-action="missile"]');
+ const z=a.w.document.querySelector('#cancel-zone');
+ z.getBoundingClientRect=()=>({left:0,right:390,top:780,bottom:844});
+ const event=(name,x,y)=>a.canvas.dispatchEvent(new a.w.PointerEvent(name,{pointerId:5,button:0,clientX:x,clientY:y,bubbles:true}));
+ event('pointerdown',180,200);event('pointermove',180,810);
+ assert.equal(a.w.document.querySelector('#game').classList.contains('cancel-armed'),true);
+ event('pointerup',180,810);
+ assert.equal(a.read().phase,'IDLE');
+ assert.equal(a.read().moveAvailable,true);assert.equal(a.read().actionAvailable,true);
+ }finally{await a.close();}
+});
+test('language switches instantly without resetting match; future modes disabled',async()=>{
+ const a=await setup();try{
+ assert.equal(a.w.document.querySelector('[data-panel="tutorial"]').disabled,true);
+ assert.equal(a.w.document.querySelector('[data-panel="computer"]').disabled,true);
+ a.click('[data-panel="start"]');const before=a.read();a.click('#menu');a.click('[data-panel="lang-en"]');
+ assert.match(a.w.document.querySelector('#panel').textContent,/Settings/);
+ assert.equal(a.w.localStorage.getItem('ricochet.language'),'en');
+ a.click('[data-panel="close"]');assert.equal(a.w.document.querySelector('[data-action="move"]').textContent,'Move');
+ assert.deepEqual(a.read().players,before.players);
+ }finally{await a.close();}
+});
+test('End Turn remains usable from uncommitted aim',async()=>{
+ const a=await setup();try{a.click('[data-panel="start"]');a.click('[data-action="move"]');a.click('#fab');assert.equal(a.read().phase,'HANDOFF');}finally{await a.close();}
+});
+for(const kind of ['move','missile']) test(`${kind}: committed relay cancel retains origin and charge`,async()=>{
+ const a=await setup();try{
+ a.click('[data-panel="start"]');a.click(`[data-action="${kind==='move'?'move':'action'}"]`);if(kind==='missile')a.click('[data-action="missile"]');
+ const event=(name,x,y)=>a.canvas.dispatchEvent(new a.w.PointerEvent(name,{pointerId:8,button:0,clientX:x,clientY:y,bubbles:true}));
+ // Shoot toward the near wall. Its reflection returns to the starting friendly outpost.
+ event('pointerdown',180,300);event('pointerup',180,220);
+ for(let i=0;i<1600 && a.read().phase.includes('FLYING');i++) a.tick(16);
+ assert.equal(a.read().phase,kind==='move'?'MOVE_RELAY_AIM':'MISSILE_RELAY_AIM');
+ const before=a.read();a.click('#cancel-zone');const after=a.read();
+ assert.equal(after.phase,before.phase);assert.deepEqual(after.towers,before.towers);assert.equal(after.charge,before.charge);assert.deepEqual(after.players,before.players);
+ }finally{await a.close();}
+});
+test('End Turn settles a committed relay using existing stop rules',async()=>{
+ const a=await setup();try{
+ a.click('[data-panel="start"]');a.click('[data-action="action"]');a.click('[data-action="missile"]');
+ const event=(name,x,y)=>a.canvas.dispatchEvent(new a.w.PointerEvent(name,{pointerId:8,button:0,clientX:x,clientY:y,bubbles:true}));
+ event('pointerdown',180,300);event('pointerup',180,220);
+ for(let i=0;i<1600 && a.read().phase.includes('FLYING');i++)a.tick(16);
+ assert.equal(a.read().phase,'MISSILE_RELAY_AIM');a.click('#fab');assert.equal(a.read().phase,'HANDOFF');
+ }finally{await a.close();}
+});
+test('Escape from home settings returns home rather than starting a match',async()=>{
+ const a=await setup();try{a.click('[data-panel="settings"]');a.w.document.dispatchEvent(new a.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.ok(a.w.document.querySelector('[data-panel="start"]'));assert.equal(a.w.document.querySelector('#overlay').hidden,false);}finally{await a.close();}
+});
+
+test('redeploy selection survives Settings and language switching',async()=>{
+ const a=await setup();try{
+ a.click('[data-panel="start"]');const s=E.createGame();s.players[1].pos={x:8,y:25};
+ for(const x of [2,4,6,8]) {s.towers.push({id:++s.nextId,owner:1,pos:{x,y:28},stage:0,slot:String(s.nextId),protected:[],relayUsed:false});}
+ E.recompute(s);a.w.useFixtureForTest(s);
+ a.click('[data-action="action"]');a.click('[data-action="tower"]');
+ a.click('#menu');a.click('[data-panel="lang-en"]');a.click('[data-panel="close"]');
+ const r=a.canvas.getBoundingClientRect(),view=battlefieldViewport(s,r.width,r.height,64),target=s.towers.find(t=>t.owner===1);
+ a.canvas.dispatchEvent(new a.w.PointerEvent('pointerdown',{pointerId:4,button:0,clientX:view.x+(target.pos.x+.5)*view.tile,clientY:view.y+(target.pos.y+.5)*view.tile,bubbles:true}));
+ assert.equal(a.read().actionAvailable,false);assert.ok(a.read().towers.some(t=>t.owner===1 && t.pos.x===8 && t.pos.y===25));
+ }finally{await a.close();}
+});
