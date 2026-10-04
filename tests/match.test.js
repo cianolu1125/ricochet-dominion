@@ -17,7 +17,7 @@ test("80 percent counted including temporary only at complete round end", () => 
   assert.equal(s.winner.player, 1);
   assert.equal(s.winner.reason, "territory");
 });
-test("last-round area then HP then tower count then one sudden death round", () => {
+test("last-round area then HP then tower count then a direct draw", () => {
   for (const tie of ["area", "hp", "tower", "all"]) {
     const s = E.createGame(10);
     s.round = 10;
@@ -31,24 +31,10 @@ test("last-round area then HP then tower count then one sudden death round", () 
     pass(s);
     pass(s);
     if (tie === "all") {
-      assert.equal(s.overtime, true);
-      pass(s);
-      pass(s);
+      assert.equal(s.round, 10);
       assert.equal(s.winner.player, 0);
     } else assert.equal(s.winner.player, 1);
   }
-});
-test("sudden death compares net gains and finishes after exactly one round", () => {
-  const s = E.createGame(10);
-  s.round = 10;
-  pass(s);
-  pass(s);
-  assert.ok(s.overtime);
-  s.cells[100] = 2;
-  pass(s);
-  pass(s);
-  assert.equal(s.winner.player, 2);
-  assert.equal(s.winner.reason, "overtime");
 });
 for (const profile of ["phone", "tablet", "touch-landscape", "desktop"])
   test(`full local match ${profile} finishes with legal entities and independent resources`, () => {

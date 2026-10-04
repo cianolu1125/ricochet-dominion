@@ -52,20 +52,20 @@ test("T03/04 removing only supply leaves color temporary indefinitely", () => {
   E.beginTurn(s);
   assert.equal(s.cells[E.index(s, { x: 3, y: 2 })], 1);
 });
-test("T05/08 claim snapshots before building and never expands", () => {
+test("T05/08 claim follows the current connected temporary region", () => {
   const s = fresh();
   for (let x = 3; x < 7; x++) s.cells[E.index(s, { x, y: 5 })] = 2;
   E.recompute(s);
   s.players[1].pos = { x: 3, y: 5 };
   assert.ok(E.buildTower(s));
-  assert.equal(s.claims[0].cells.length, 4);
+  assert.equal(s.claims[0].cells.length, 3);
   s.cells[E.index(s, { x: 7, y: 5 })] = 2;
   E.endTurn(s);
   E.beginTurn(s);
   E.endTurn(s);
   E.beginTurn(s);
   assert.equal(s.cells[E.index(s, { x: 6, y: 5 })], 1);
-  assert.equal(s.cells[E.index(s, { x: 7, y: 5 })], 2);
+  assert.equal(s.cells[E.index(s, { x: 7, y: 5 })], 1);
 });
 test("T06 rescued cells remain target color when claim settles", () => {
   const s = fresh();

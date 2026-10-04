@@ -61,7 +61,7 @@ test("wall reflection remains in bounds and frame sizes produce same result", ()
   assert.deepEqual(finals[0], finals[1]);
   assert.deepEqual(finals[0], finals[2]);
 });
-test("charge stays capped after fourth ready relay and departure does not consume origin tower", () => {
+test("four relays reach Charge II and departure does not consume origin tower", () => {
   const s = E.createGame();
   s.towers = [];
   s.players[1].pos = { x: 2, y: 15 };
@@ -80,7 +80,7 @@ test("charge stays capped after fourth ready relay and departure does not consum
   P.launch(s, { x: 1, y: 0 }, 1);
   for (let n = 0; n < 4; n++) {
     while (s.activeBody) P.stepBody(s, 1 / 120);
-    assert.equal(s.charge, Math.min(n + 1, 3));
+    assert.equal(s.charge, [1, 1, 2, 2][n]);
     if (n < 3) P.launch(s, { x: 1, y: 0 }, 1);
   }
   assert.equal(s.actionAvailable, false);

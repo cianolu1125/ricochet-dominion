@@ -72,17 +72,17 @@ test("T15/30 role can use newly built tower without missile relay cost", () => {
   assert.equal(t.relayUsed, false);
   assert.equal(s.charge, 0);
 });
-test("T16/17 charge0 HP reads collision color before explosion", () => {
+test("T16/17 charge0 impact reads color before carrying", () => {
   for (const c of [0, 1, 2]) {
     const s = setup();
     s.players[2].pos = { x: 5, y: 10 };
     s.cells[E.index(s, s.players[2].pos)] = c;
     E.recompute(s);
     fire(s);
-    fly(s);
+    for (let n = 0; n < 40 && !s.activeBody?.carried; n++)
+      P.stepBody(s, 1 / 120);
     assert.equal(s.players[2].hp, c === 2 ? 9 : 10);
-    assert.deepEqual(s.players[2].pos, { x: 5, y: 10 });
-    assert.equal(s.cells[E.index(s, s.players[2].pos)], 1);
+    assert.equal(s.activeBody.carried, 2);
   }
 });
 test("T18 friendly tower does not shield role HP", () => {
@@ -90,7 +90,7 @@ test("T18 friendly tower does not shield role HP", () => {
   s.players[2].pos = { x: 5, y: 10 };
   tower(s, 2, 5, 10, 2);
   fire(s);
-  fly(s);
+  for (let n = 0; n < 40 && !s.activeBody?.carried; n++) P.stepBody(s, 1 / 120);
   assert.equal(s.players[2].hp, 9);
   assert.equal(s.towers.length, 1);
 });
@@ -116,7 +116,7 @@ test("T23 carried role released before hostile relay tower along incoming path",
   fly(s);
   assert.equal(s.phase, "MISSILE_RELAY_AIM");
   assert.deepEqual(s.players[2].pos, { x: 5, y: 10 });
-  assert.equal(s.charge, 2);
+  assert.equal(s.charge, 1);
   assert.notDeepEqual(s.players[2].pos, t.pos);
 });
 test("T24 new trajectory does not automatically recapture released role", () => {
@@ -131,13 +131,13 @@ test("T24 new trajectory does not automatically recapture released role", () => 
   P.stepBody(s, 1 / 120);
   assert.equal(s.activeBody.carried, null);
 });
-test("T25 chargeII blast paints 5x5", () => {
+test("T25 chargeII paints center 3x3 and full row/column", () => {
   const s = setup();
   E.chooseAim(s, "missile");
   s.charge = 2;
   P.launch(s, { x: 1, y: 0 }, 0.1);
   fly(s);
-  assert.equal(E.counts(s)[1], 25);
+  assert.equal(E.counts(s)[1], 53);
 });
 test("T26 siege removes tower before blast and respects overlapping protection", () => {
   const s = setup();
@@ -182,7 +182,10 @@ test("T34 role visited towers and spent missile towers bounce", () => {
     const t = tower(s, 1, 5, 10);
     E.chooseAim(s, kind);
     if (kind === "move") s.moveVisited = [t.id];
-    else t.relayUsed = true;
+    else {
+      t.relayUsed = true;
+      s.visitedRelayTowerIds.add(t.id);
+    }
     P.launch(s, { x: 1, y: 0 }, 1);
     for (let n = 0; n < 20; n++) P.stepBody(s, 1 / 120);
     assert.ok(s.activeBody.vx < 0);
@@ -207,7 +210,8 @@ test("shared tower cannot shield role on a short low-speed tick", () => {
   };
   P.stepBody(s, 1 / 120);
   assert.equal(s.players[2].hp, 9);
-  assert.equal(s.phase, "IDLE");
+  assert.equal(s.phase, "MISSILE_FLYING");
+  assert.equal(s.activeBody.carried, 2);
 });
 test("offset diagonal carry release follows actual incoming line, not tower center", () => {
   const s = setup();
