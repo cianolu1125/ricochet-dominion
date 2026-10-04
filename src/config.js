@@ -1,4 +1,4 @@
-export const VERSION = "0.3.0-ui-theme";
+export const VERSION = "0.3.1-ui-refinement";
 export const NAMES = { 1: "红方", 2: "蓝方" };
 export const PROFILES = {
   phone: [18, 32],
@@ -12,7 +12,7 @@ export const CONFIG = Object.freeze({
   threshold: 0.8,
   rounds: [10, 14, 18],
   initialTowerStage: 2,
-  rotationMs: 320,
+  rotationMs: 400,
   physics: {
     minPower: 0.08,
     maxSpeed: 28,

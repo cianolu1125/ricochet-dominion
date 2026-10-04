@@ -3,6 +3,7 @@ import { CONFIG, VERSION } from "./config.js";
 import * as E from "./engine.js";
 import * as P from "./physics.js";
 import { battlefieldViewport, profileFor, toView, fromView } from "./view.js";
+import { branchLayout } from "./branches.js";
 import { render, TEAM } from "./renderer.js";
 import { t, teamName, getLanguage, setLanguage } from "./i18n.js";
 const $ = (id) => document.getElementById(id),
@@ -14,6 +15,7 @@ let selectedRounds = 14,
   viewOwner = 1,
   rotation = 0,
   rotationStart = null,
+  settlingUntil = null,
   menuLevel = null,
   selection = null,
   aim = null,
@@ -142,7 +144,7 @@ function playerHUD(owner) {
 const button = (action, label, reason = "", cls = "") =>
   `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}</button>`;
 function drawStack() {
-  const stack=$("stack"), idle=state.phase === "IDLE" && !overlayKind && rotationStart === null;
+  const stack=$("stack"), idle=state.phase === "IDLE" && !overlayKind && rotationStart === null && settlingUntil === null;
   if (idle && !selection && !menuLevel) menuLevel="root";
   stack.hidden=!idle || !menuLevel || (menuLevel === "root" && !state.moveAvailable && !state.actionAvailable);
   if(stack.hidden) return;
@@ -155,6 +157,7 @@ function drawStack() {
     button("dismantle",t("Destroy Outpost"), E.nearbyTowers(state).length ? "" : t("Not nearby"))+
     button("root",t("Back"),"","back");
   else stack.innerHTML=`<p>${t("Select Outpost")}</p>`+button("action",t("Back"),"","back");
+  stack.insertAdjacentHTML('afterbegin','<svg class="branch-lines" aria-hidden="true"></svg>');
   positionMenu();
 }
 function towerReason() { const reason=E.towerReason(state); return reason ? t(reason.includes("脚下") ? "Occupied" : "Protected") : ""; }
@@ -162,20 +165,26 @@ function positionMenu() {
   const stack=$("stack"); if(stack.hidden) return;
   const r=canvas.getBoundingClientRect(), player=state.players[state.current], w=player.world || {x:player.pos.x+0.5,y:player.pos.y+0.5}, p=toView(w,state,viewOwner);
   const board=boardViewport();
-  const x=r.left+board.x+p.x*board.tile,y=r.top+board.y+p.y*board.tile;
-  const width=stack.offsetWidth || 160,height=stack.offsetHeight || (menuLevel==='root' ? 52 : 210);
+  const anchor={x:r.left+board.x+p.x*board.tile,y:r.top+board.y+p.y*board.tile};
   const bottom=$("toolbar").getBoundingClientRect().top || innerHeight-64;
-  const left=x<innerWidth/2 ? x+26 : x-width-26;
-  const top=y>bottom/2 ? y-height-20 : y+20;
-  stack.style.left=Math.max(16,Math.min(innerWidth-width-16,left))+"px";
-  stack.style.top=Math.max(16,Math.min(bottom-height-10,top))+"px";
+  const buttons=[...stack.querySelectorAll('button')];
+  const widths=buttons.map(b=>Math.max(b.dataset.action==='root'?60:80,Math.min(140,b.textContent.length*(getLanguage()==='en'?7:14)+24)));
+  const geometry=JSON.stringify([anchor,bottom,innerWidth,menuLevel,widths]);
+  const svg=stack.querySelector(".branch-lines");
+  if(svg.dataset.geometry===geometry) return;
+  svg.dataset.geometry=geometry;
+  const fanWidths=menuLevel==='action' ? [widths[3],...widths.slice(0,3)] : widths;
+  const layout=branchLayout(anchor,{left:4,top:4,right:innerWidth-4,bottom:bottom-8},menuLevel==='action'?'action':'root',fanWidths);
   stack.style.setProperty("--team",TEAM[state.current]);
-  const opponent=$("opponent");
-  if(!opponent.hidden) {
-    const menuTop=parseFloat(stack.style.top);
-    opponent.style.top=menuTop<innerHeight/2 ? "auto" : "16px";
-    opponent.style.bottom=menuTop<innerHeight/2 ? "calc(68px + var(--safe-bottom))" : "auto";
-  }
+  const points=new Map(layout.nodes.map(n=>[n.key,n]));
+  buttons.forEach((b,i)=>{
+    const n=points.get(b.dataset.action) || layout.nodes[0];
+    b.style.left=(n.x-n.width/2)+"px"; b.style.top=(n.y-n.height/2)+"px";
+    b.style.width=n.width+"px";b.style.setProperty('--delay',(i*35+70)+'ms');
+    b.style.setProperty('--from-x',(anchor.x-n.x)+'px');b.style.setProperty('--from-y',(anchor.y-n.y)+'px');
+  });
+  stack.querySelector('.branch-lines').innerHTML=layout.links.map(l=>`<path d="M ${l.from.x} ${l.from.y} L ${l.to.x} ${l.to.y}"/>`).join('');
+  const label=stack.querySelector('p');if(label){label.style.left=Math.max(4,Math.min(innerWidth-180,anchor.x-90))+'px';label.style.top=Math.max(4,anchor.y-92)+'px';}
 }
 function cancelCurrentAim() {
   if(!state.phase.includes("AIM")) return;
@@ -202,7 +211,9 @@ function update() {
   $("charge").textContent=t("Charge")+" "+["0","Ⅰ","Ⅱ","Ⅲ"][state.charge];
   $("hint").textContent=selection ? t("Select Outpost") : "";
   $("fab").textContent=t("End Turn");
-  $("fab").disabled=flying || rotationStart!==null || !!overlayKind;
+  $("fab").disabled=flying || rotationStart!==null || settlingUntil!==null || !!overlayKind;
+  $("menu").disabled=rotationStart!==null || settlingUntil!==null;
+  $("opponent-toggle").disabled=rotationStart!==null || settlingUntil!==null;
   $("fab").className=`fab ${c===1?'red':'blue'}`;
   $("cancel-zone").hidden=!aiming;
   $("cancel-zone").textContent=cancelArmed ? t(state.phase.startsWith("MOVE") ? "Release to Cancel Move" : "Release to Cancel Fire") : t(state.committed ? "Relay Cancel" : "Cancel");
@@ -244,6 +255,7 @@ function start() {
   );
   viewOwner = 1;
   rotationStart = null;
+  settlingUntil = null;
   rotation = 0;
   effects = [];
   transitions.clear();
@@ -262,6 +274,7 @@ function result() {
  panel("result",`<p class="eyebrow">${t("Game Over")} · ${label}</p><h2 id="panel-title">${w.player ? teamName(w.player)+' '+t("Wins") : t("Draw")}</h2>${[1,2].map(o=>`<p style="color:${TEAM[o]}">${teamName(o)} · ${((100*c[o])/state.cells.length).toFixed(1)}% · ${state.players[o].hp} HP · ${state.towers.filter(t=>t.owner===o).length} ${t("Outposts")}</p>`).join('')}<button class="primary" data-panel="start">${t("Rematch")}</button><button class="settings-entry" data-panel="home">${t("Main Menu")}</button>`);
 }
 function end() {
+  if(overlayKind || rotationStart!==null || settlingUntil!==null || state.phase.includes("FLYING")) return;
   if(state.phase.includes("AIM")) {
     const before=visualSnapshot();
     // End Turn explicitly settles a held projectile/move using the existing stop rules.
@@ -278,19 +291,29 @@ function end() {
     `<p class="eyebrow">${t("Pass device")}</p><h2 id="panel-title" style="color:${TEAM[state.current]}">${teamName(state.current)}</h2><p>${t("Prepare")}</p><button class="primary" data-panel="ready">${t("Ready")}</button>`,
   );
 }
-function ready() {
-  const before = visualSnapshot();
+function settleNewTurn(time) {
+  const before=visualSnapshot();
   E.beginTurn(state);
-  visualChanges(before);
-  closePanel();
-  if (state.profile !== "desktop" && !reduced.matches) {
-    rotationStart = performance.now();
-    rotation = 0;
-  } else viewOwner = state.current;
+  visualChanges(before,time);
+  // Finish the longest explanatory wave before the new player can act.
+  settlingUntil=Math.max(
+    time+(reduced.matches ? 100 : 520),
+    ...[...transitions.values()].map(t=>t.born+t.delay+t.duration),
+    ...effects.map(e=>e.born+(e.type==='damage'?650:480)),
+  );
+  menuLevel=null;
+  accumulator=0;
   update();
 }
+function ready() {
+  // Keep HANDOFF authoritative throughout the camera transition.
+  overlayKind=null; $("overlay").hidden=true; menuLevel=null;
+  if(state.profile!=="desktop" && !reduced.matches) {
+    rotationStart=performance.now();rotation=0;update();
+  } else {viewOwner=state.current;settleNewTurn(performance.now());}
+}
 function doAction(action) {
- if(overlayKind || rotationStart!==null) return;
+ if(overlayKind || rotationStart!==null || settlingUntil!==null) return;
  const before=visualSnapshot(); selection=null; aim=null;pointer=null;
  if(action==='root' || action==='action') menuLevel=action;
  else if(action==='move' || action==='missile') {E.chooseAim(state,action==='move'?'move':'missile'); menuLevel=null;}
@@ -384,7 +407,7 @@ function fire(a) {
   update();
 }
 canvas.addEventListener("pointerdown", (event) => {
-  if (overlayKind || rotationStart !== null || event.button !== 0 || pointer !== null)
+  if (overlayKind || rotationStart !== null || settlingUntil !== null || event.button !== 0 || pointer !== null)
     return;
   const p = worldPoint(event);
   if (selection) {
@@ -408,7 +431,7 @@ canvas.addEventListener("pointerdown", (event) => {
     return;
   }
   if (!state.phase.includes("AIM")) return;
-  if(event.clientX<16 || event.clientX>innerWidth-16 || event.clientY<16 || event.clientY>innerHeight-16) return;
+  if(event.clientX<4 || event.clientX>innerWidth-4 || event.clientY<4 || event.clientY>innerHeight-4) return;
   // Relative drag: no need to touch the character or relay tower precisely.
   dragStart = { x: event.clientX, y: event.clientY };
   pointer = event.pointerId;
@@ -444,6 +467,7 @@ for (const name of ["pointercancel", "lostpointercapture"])
 document.addEventListener("keydown", (e) => {
   if(e.key === "Enter" && !overlayKind && !e.target.closest?.("button")) {end();return;}
   if (e.key !== "Escape") return;
+  if(rotationStart!==null || settlingUntil!==null) return;
   if (overlayKind === "rules") {
     if (rulesReturn === "home") home();
     else if(rulesReturn === "menu") menuPanel();
@@ -477,10 +501,11 @@ function frame(time) {
       rotationStart = null;
       rotation = 0;
       viewOwner = state.current;
-      update();
+      settleNewTurn(time);
     }
   }
-  if (!overlayKind && rotationStart === null && !document.hidden) {
+  if(settlingUntil!==null && time>=settlingUntil) {settlingUntil=null;menuLevel="root";update();}
+  if (!overlayKind && rotationStart === null && settlingUntil === null && !document.hidden) {
     accumulator += dt;
     const phase = state.phase;
     const before = state.activeBody ? visualSnapshot() : null;

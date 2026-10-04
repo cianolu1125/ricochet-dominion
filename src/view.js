@@ -13,8 +13,8 @@ export function profileFor(width, height, touch) {
   return width > height ? "touch-landscape" : "tablet";
 }
 
-// Canvas remains full viewport. Fit the board camera above the overlay gesture area.
-export function battlefieldViewport(s, width, height, dock = 64) {
-  const area = camera(s, Math.max(1,width-24), Math.max(1,height-dock-24));
-  return {...area,x:(width-area.width)/2,y:12+Math.max(0,(height-dock-24-area.height)/2)};
+// HUD overlays the full canvas; only a thin rim is reserved for the map.
+export function battlefieldViewport(s, width, height) {
+  const area = camera(s, Math.max(1, width - 8), Math.max(1, height - 8));
+  return {...area, x:(width-area.width)/2, y:(height-area.height)/2};
 }
