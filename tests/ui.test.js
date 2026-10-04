@@ -114,9 +114,10 @@ for (const [width, height, touch] of [
       assert.equal(a.read().moveAvailable, true);
       a.click("#fab");
       assert.equal(a.read().phase, "HANDOFF");
-      a.click('[data-panel="ready"]');
-      a.tick(450);
-      a.tick(600);
+
+      a.tick(400);
+      a.tick(200);
+      a.tick(650);
       assert.equal(a.read().current, 2);
       const before = a.read();
       a.w.innerWidth = height;
@@ -132,19 +133,17 @@ for (const [width, height, touch] of [
     }
   });
 
-test('opponent HP is optional and precision controls are removed', async () => {
-  const a = await setup();
-  try {
-    a.click('[data-panel="start"]');
-    assert.equal(a.w.document.querySelector('#opponent').hidden, true);
-    a.click('#opponent-toggle');
-    assert.equal(a.w.document.querySelector('#opponent').hidden, false);
-    assert.match(a.w.document.querySelector('#opponent-info').textContent, /10\/10 HP/);
-    a.click('#opponent-close');
-    assert.equal(a.w.document.querySelector('#opponent').hidden, true);
-    assert.equal(a.w.document.querySelector('#precision'), null);
-    assert.equal(a.w.document.querySelector('#fab').closest('footer').id, 'toolbar');
-  } finally { await a.close(); }
+test('opponent info comes from the enemy and disappears for aim', async () => {
+ const a=await setup();try {
+ a.click('[data-panel="start"]');
+ assert.equal(a.w.document.querySelector('#opponent-toggle'),null);
+ assert.equal(a.w.document.querySelector('#opponent').hidden,false);
+ a.tick(2600);a.tick(150);assert.equal(a.w.document.querySelector('#opponent').hidden,true);
+ const s=a.read(),v=battlefieldViewport(s,a.canvas.clientWidth,a.canvas.clientHeight),p=s.players[2].pos;
+ a.canvas.dispatchEvent(new a.w.PointerEvent('pointerdown',{button:0,clientX:v.x+(p.x+.5)*v.tile,clientY:v.y+(p.y+.5)*v.tile,pointerId:1}));
+ assert.equal(a.w.document.querySelector('#opponent').hidden,false);
+ a.click('[data-action="move"]');assert.equal(a.w.document.querySelector('#opponent').hidden,true);
+ }finally{await a.close();}
 });
 for (const kind of ['move', 'missile'])
   test(`${kind}: drag starts far from origin; tap spends nothing; release launches`, async () => {
@@ -238,10 +237,12 @@ test('new turn settlement waits for rotation and controls wait for effects',asyn
  a.click('[data-panel="start"]');const s=E.createGame();
  const blue=s.towers.find(t=>t.owner===2);blue.stage=0;
  a.w.useFixtureForTest(s);a.click('#fab');const before=a.read();
- a.click('[data-panel="ready"]');
+
  assert.equal(a.read().phase,'HANDOFF');assert.deepEqual(a.read().towers,before.towers);
  a.tick(200);assert.equal(a.read().phase,'HANDOFF');assert.deepEqual(a.read().towers,before.towers);
- a.tick(450);assert.equal(a.read().phase,'IDLE');assert.ok(a.read().towers.find(t=>t.owner===2).stage>0);
+ a.tick(200);assert.equal(a.read().phase,'HANDOFF');assert.deepEqual(a.read().towers,before.towers);
+ a.tick(199);assert.equal(a.read().phase,'HANDOFF');
+ a.tick(1);assert.equal(a.read().phase,'IDLE');assert.ok(a.read().towers.find(t=>t.owner===2).stage>0);
  assert.equal(a.w.document.querySelector('#stack').hidden,true);
  assert.equal(a.w.document.querySelector('#fab').disabled,true);
  a.tick(600);assert.equal(a.w.document.querySelector('#stack').hidden,false);assert.equal(a.w.document.querySelector('#fab').disabled,false);
@@ -252,8 +253,49 @@ test('new turn settlement waits for rotation and controls wait for effects',asyn
 test('reduced motion still waits for outpost growth effects before input',async()=>{
  const a=await setup(390,844,true,true);try{
  a.click('[data-panel="start"]');const s=E.createGame();s.towers.find(t=>t.owner===2).stage=0;a.w.useFixtureForTest(s);
- a.click('#fab');a.click('[data-panel="ready"]');assert.equal(a.read().phase,'IDLE');
- a.tick(150);assert.equal(a.w.document.querySelector('#fab').disabled,true);assert.equal(a.w.document.querySelector('#stack').hidden,true);
+ a.click('#fab');assert.equal(a.read().phase,'HANDOFF');
+ a.tick(200);assert.equal(a.read().phase,'IDLE');
+ a.tick(30);assert.equal(a.w.document.querySelector('#fab').disabled,true);assert.equal(a.w.document.querySelector('#stack').hidden,true);
  a.tick(400);assert.equal(a.w.document.querySelector('#fab').disabled,false);assert.equal(a.w.document.querySelector('#stack').hidden,false);
+ }finally{await a.close();}
+});
+
+test('HUD occupies its own layout row rather than overlaying the map',async()=>{
+ const css=await readFile('src/style.css','utf8');
+ assert.match(css,/#game[^}]*display:\s*(flex|grid)/);
+ assert.match(css,/#battlefield[^}]*position:\s*relative/);
+ assert.match(css,/#toolbar[^}]*position:\s*relative/);
+});
+
+test('sound, volume and reduced motion persist without changing match state',async()=>{
+ const a=await setup();try {
+ a.click('[data-panel="start"]');const before=a.read();a.click('#menu');
+ a.click('[data-panel="sound"]');assert.equal(a.w.localStorage.getItem('rd-sound'),'off');
+ const input=a.w.document.querySelector('#volume');input.value='25';input.dispatchEvent(new a.w.Event('input',{bubbles:true}));
+ assert.equal(a.w.localStorage.getItem('rd-volume'),'0.25');
+ a.click('[data-panel="reduced"]');assert.equal(a.w.localStorage.getItem('rd-reduced'),'on');
+ a.click('[data-panel="close"]');assert.deepEqual(a.read().players,before.players);assert.equal(a.w.document.querySelector('#game').classList.contains('reduced'),true);
+ }finally{await a.close();}
+});
+test('consumed move removes the node and its connector on the next idle menu',async()=>{
+ const a=await setup();try {
+ a.click('[data-panel="start"]');const s=E.createGame();s.moveAvailable=false;a.w.useFixtureForTest(s);
+ assert.equal(a.w.document.querySelector('[data-action="move"]'),null);
+ assert.equal(a.w.document.querySelectorAll('.branch-lines path').length,1);
+ assert.ok(a.w.document.querySelector('[data-action="action"]'));
+ }finally{await a.close();}
+});
+test('audio preference changes do not turn system reduced-motion into an explicit override',async()=>{
+ const a=await setup();try {
+ a.click('[data-panel="settings"]');a.click('[data-panel="sound"]');
+ assert.equal(a.w.localStorage.getItem('rd-reduced'),null);
+ }finally{await a.close();}
+});
+test('outpost selection shows only the actual return-node connector',async()=>{
+ const a=await setup();try {
+ a.click('[data-panel="start"]');const s=E.createGame();s.players[1].pos={x:8,y:25};
+ for(const x of [2,4,6,8])s.towers.push({id:++s.nextId,owner:1,pos:{x,y:28},stage:0,slot:String(x),protected:[],relayUsed:false});E.recompute(s);a.w.useFixtureForTest(s);
+ a.click('[data-action="action"]');a.click('[data-action="tower"]');
+ assert.equal(a.w.document.querySelectorAll('#stack button').length,1);assert.equal(a.w.document.querySelectorAll('.branch-lines path').length,1);
  }finally{await a.close();}
 });
