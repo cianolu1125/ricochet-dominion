@@ -1,6 +1,6 @@
 # 弹射战线 · RICOCHET FRONT
 
-**v0.6.0** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.0 完整更新规格](docs/specs/v0.6.0-confirmed.txt)。历史版本规则见 CHANGELOG。
+**v0.6.1** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.1 完整更新规格](docs/v0.6.1-spec.md)。历史版本规则见 CHANGELOG。
 
 ## 当前玩法
 
@@ -42,3 +42,6 @@ Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。检查：`npm test`、`npm r
 - [GitHub](https://github.com/cianolu1125/ricochet-dominion)：既有私有仓库、`main`。
 - Sites 与 GitHub 同版源码，分别保留各自提交历史。GitHub 提交不会自动发布 Sites。
 - [v0.6.0 执行记录](docs/v0.6.0-progress.md)。
+
+
+v0.6.1: authoritative per-outpost influence masks; overload erosion, temporary restoration, deferred growth and mature frontier recovery. Flux A pure-color static tiles, quiet inner protection frames, dark drawn unstable cues, slow relay/contested/overload rings and accurate irregular region outlines. See [execution record](docs/v0.6.1-progress.md).

@@ -1,3 +1,12 @@
+## v0.6.1 · 2026-10-06
+
+- Separate structural stage from per-cell actual influence. Overloaded outposts retain a residual mask; enemy stable/protected conquest persistently erodes it.
+- Restore retained enemy temporary cells immediately; preserve enemy stable/protected losses. Restore and takeover activation skip same-settlement growth.
+- Mature outposts recover one frozen four-neighbor frontier per owner turn inside 5×5, respecting enemy protection. Empty masks seed only the unprotected center before expanding.
+- Flux A: static pure-color Stable/Protected/Unstable tiles; inset protection lines and near-black drawn unstable corners; no perpetual tile gradients/scanning.
+- Actual concave residual contours, unified red/blue contested region lines, borderless upright labels, slow opposite relay/contested arcs and overload broken rings. Reduced motion freezes persistent motion.
+- Structural and mature frontier growth share a 100ms actual-cell outline preview and grouped wave feedback. Preserve existing hit stop, sound/particle caps, physics and HP rules.
+
 ## v0.6.0 · 2026-10-05
 
 - Quick／Standard／Long 固定 10／14／18 Round 与等值 HP；移除 Custom。
