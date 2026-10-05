@@ -1,3 +1,4 @@
+import { stabilize } from './territory-fixture.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as E from "../src/engine.js";
@@ -165,7 +166,7 @@ for (const [level, total] of [
     fly(s);
     assert.equal(E.counts(s)[1], total);
   });
-test("cross skips enemy shield, reaches beyond it and cannot destroy remote tower", () => {
+test("cross stops at enemy shield and cannot destroy remote tower", () => {
   const s = fresh();
   const t = tower(s, 2, 11, 12, 1);
   E.chooseAim(s, "missile");
@@ -175,14 +176,15 @@ test("cross skips enemy shield, reaches beyond it and cannot destroy remote towe
   fly(s);
   assert.ok(s.towers.includes(t));
   assert.equal(s.cells[E.index(s, { x: 11, y: 12 })], 2);
-  assert.equal(s.cells[E.index(s, { x: 15, y: 12 })], 1);
+  assert.equal(s.cells[E.index(s, { x: 15, y: 12 })], 0);
 });
-test("fatal carried release at siege aborts tower removal and every paint operation", () => {
+test("fatal final siege damage happens after tower removal and paint", () => {
   const s = fresh();
   const t = tower(s, 2, 5, 10, 0);
   s.players[2].hp = 1;
   s.cells[E.index(s, { x: 4, y: 10 })] = 2;
   E.recompute(s);
+  stabilize(s,1,[{x:4,y:10}]);
   const before = [...s.cells];
   s.phase = "MISSILE_FLYING";
   s.charge = 3;
@@ -194,11 +196,12 @@ test("fatal carried release at siege aborts tower removal and every paint operat
     kind: "missile",
     charge: 3,
     carried: 2,
-    wasOwn: false,
+    wasEnemy: false,
     trail: [],
   };
   P.stepBody(s, 1 / 120);
   assert.equal(s.winner?.player, 1);
-  assert.ok(s.towers.includes(t));
-  assert.deepEqual(s.cells, before);
+  assert.ok(!s.towers.includes(t));
+  assert.equal(s.cells[E.index(s, { x: 4, y: 10 })], 1);
+  assert.equal(s.phase, "GAME_OVER");
 });

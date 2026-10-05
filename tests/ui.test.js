@@ -751,3 +751,14 @@ test("invalid custom input retains and explains the latest valid round count", a
     await a.close();
   }
 });
+
+for (const kind of ['move','missile']) test(`v052 ${kind}: button entry exposes relay before any drag`, async()=>{
+ const a=await setup();try{
+  a.click('[data-panel="start"]');
+  const s=E.createGame();a.w.useFixtureForTest(s);
+  if(kind==='missile'){a.click('[data-action="action"]');a.click('[data-action="missile"]');}
+  else a.click('[data-action="move"]');
+  assert.equal(s.phase,kind==='move'?'MOVE_AIM':'MISSILE_AIM');
+  assert.equal(E.relayStatus(s,s.towers[0]),'available');
+ }finally{await a.close();}
+});

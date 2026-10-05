@@ -1,3 +1,4 @@
+import { stabilize } from './territory-fixture.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -61,8 +62,9 @@ test("all charge levels are distinct, maxed relay is short, wave switches at lan
 test("carry traversal emits distinct facts for each actual HP decrement", () => {
   const s = E.createGame();
   s.cells.fill(0);
-  for (const x of [3, 5, 7]) s.cells[E.index(s, { x, y: 8 })] = 2;
-  const m = { carried: 2, wasOwn: false };
+  for (const x of [3, 5, 7]) s.cells[E.index(s, { x, y: 8 })] = 1;
+  stabilize(s,1,[3,5,7].map(x=>({x,y:8})));
+  const m = { carried: 2, wasEnemy: false };
   P.carryAlong(s, m, { x: 2.5, y: 8.5 }, { x: 8.5, y: 8.5 });
   const f = drainFacts(s);
   assert.equal(s.players[2].hp, 7);
@@ -75,6 +77,9 @@ test("actual role hit and carry share one causal sound group", () => {
   const enemy = s.towers.find((t) => t.owner === 2);
   s.players[2].pos = { ...enemy.pos };
   s.players[2].hp = 10;
+  s.cells[E.index(s, enemy.pos)] = 1;
+  stabilize(s,1,[enemy.pos]);
+  E.recompute(s);
   s.phase = "MISSILE_AIM";
   s.charge = 0;
   P.launch(s, { x: 0, y: -1 }, 1);
@@ -105,9 +110,10 @@ test("a weak independent hit reinjects feedback without erasing a stronger activ
 test("release damage is recorded at actual legal landing, not prior carried world", () => {
   const s = E.createGame();
   s.cells.fill(0);
-  s.cells[E.index(s, { x: 5, y: 6 })] = 2;
+  s.cells[E.index(s, { x: 5, y: 6 })] = 1;
+  stabilize(s,1,[{x:5,y:6}]);
   s.players[2].world = { x: 5.4, y: 5.4 };
-  const m = { x: 5.5, y: 5.5, vx: 0, vy: -10, carried: 2, wasOwn: false };
+  const m = { x: 5.5, y: 5.5, vx: 0, vy: -10, carried: 2, wasEnemy: false };
   const tower = { pos: { x: 5, y: 5 } };
   P.releaseBefore(s, m, tower);
   const f = drainFacts(s);

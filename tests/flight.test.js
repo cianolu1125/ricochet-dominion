@@ -1,3 +1,4 @@
+import { stabilize } from './territory-fixture.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as E from "../src/engine.js";
@@ -77,27 +78,29 @@ test("T16/17 charge0 impact reads color before carrying", () => {
     const s = setup();
     s.players[2].pos = { x: 5, y: 10 };
     s.cells[E.index(s, s.players[2].pos)] = c;
+    if(c===1) stabilize(s,1,[s.players[2].pos]);
     E.recompute(s);
     fire(s);
     for (let n = 0; n < 40 && !s.activeBody?.carried; n++)
       P.stepBody(s, 1 / 120);
-    assert.equal(s.players[2].hp, c === 2 ? 9 : 10);
+    assert.equal(s.players[2].hp, c === 1 ? 9 : 10);
     assert.equal(s.activeBody.carried, 2);
   }
 });
-test("T18 friendly tower does not shield role HP", () => {
+test("T18 own protected color does not cause territory damage", () => {
   const s = setup();
   s.players[2].pos = { x: 5, y: 10 };
   tower(s, 2, 5, 10, 2);
   fire(s);
   for (let n = 0; n < 40 && !s.activeBody?.carried; n++) P.stepBody(s, 1 / 120);
-  assert.equal(s.players[2].hp, 9);
+  assert.equal(s.players[2].hp, 10);
   assert.equal(s.towers.length, 1);
 });
 test("T19/20/21/22 swept carried entries apply once per color transition", () => {
   const s = setup();
   s.players[2].pos = { x: 3, y: 10 };
-  for (const x of [3, 4, 6, 8]) s.cells[E.index(s, { x, y: 10 })] = 2;
+  for (const x of [3, 4, 6, 8]) s.cells[E.index(s, { x, y: 10 })] = 1;
+  stabilize(s,1,[3,4,6,8].map(x=>({x,y:10})));
   E.recompute(s);
   E.chooseAim(s, "missile");
   s.charge = 1;
@@ -153,7 +156,8 @@ test("T27 fatal impact aborts explosion immediately", () => {
   const s = setup();
   s.players[2].pos = { x: 5, y: 10 };
   s.players[2].hp = 1;
-  s.cells[E.index(s, s.players[2].pos)] = 2;
+  s.cells[E.index(s, s.players[2].pos)] = 1;
+  stabilize(s,1,[s.players[2].pos]);
   E.recompute(s);
   const before = [...s.cells];
   fire(s);
@@ -193,7 +197,7 @@ test("T34 role visited towers and spent missile towers bounce", () => {
   }
 });
 
-test("shared tower cannot shield role on a short low-speed tick", () => {
+test("shared tower still permits role capture on a short low-speed tick", () => {
   const s = setup();
   s.players[2].pos = { x: 5, y: 5 };
   tower(s, 2, 5, 5);
@@ -209,14 +213,14 @@ test("shared tower cannot shield role on a short low-speed tick", () => {
     trail: [],
   };
   P.stepBody(s, 1 / 120);
-  assert.equal(s.players[2].hp, 9);
+  assert.equal(s.players[2].hp, 10);
   assert.equal(s.phase, "MISSILE_FLYING");
   assert.equal(s.activeBody.carried, 2);
 });
 test("offset diagonal carry release follows actual incoming line, not tower center", () => {
   const s = setup();
   const t = tower(s, 1, 5, 5);
-  const m = { x: 5.03, y: 5.4, vx: 1, vy: 1, carried: 2, wasOwn: false };
+  const m = { x: 5.03, y: 5.4, vx: 1, vy: 1, carried: 2, wasEnemy: false };
   P.releaseBefore(s, m, t);
   assert.deepEqual(s.players[2].pos, { x: 4, y: 5 });
 });
@@ -225,8 +229,9 @@ test("fatal damage during release stops all subsequent position and carry change
   const t = tower(s, 1, 5, 5);
   s.players[2].hp = 1;
   s.players[2].pos = { x: 2, y: 2 };
-  s.cells[E.index(s, { x: 4, y: 5 })] = 2;
-  const m = { x: 5.03, y: 5.5, vx: 1, vy: 0, carried: 2, wasOwn: false };
+  s.cells[E.index(s, { x: 4, y: 5 })] = 1;
+  E.recompute(s);
+  const m = { x: 5.03, y: 5.5, vx: 1, vy: 0, carried: 2, wasEnemy: false };
   P.releaseBefore(s, m, t);
   assert.equal(s.winner.player, 1);
   assert.deepEqual(s.players[2].pos, { x: 2, y: 2 });
