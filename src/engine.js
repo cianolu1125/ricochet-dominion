@@ -302,6 +302,7 @@ export function win(s, player, reason) {
   s.activeBody = null;
   s.relay = null;
   s.visitedRelayTowerIds.clear();
+  s.moveVisited = [];
   for (const t of s.towers) t.relayUsed = false;
   log(s, player ? `${NAMES[player]}获胜` : "双方平局");
 }
@@ -323,8 +324,23 @@ export function damage(s, owner) {
 export function isEnemyTerritory(s, owner, position = s.players[owner].pos) {
   return s.cells[index(s, position)] === enemy(owner);
 }
+export function isDamagingEnemyTerritory(s, owner, position = s.players[owner].pos) {
+  const i = index(s, position);
+  return isEnemyTerritory(s, owner, position) &&
+    (s.stability[i] === "stable" || protectedOwner(s, i) === enemy(owner));
+}
+// Action-scoped state shared by collision rules and presentation.
+export function relayStatus(s, tower, kind = null) {
+  if (s.winner || !s.towers.includes(tower) || tower.owner !== s.current) return "normal";
+  if (!kind) kind = s.phase.startsWith("MOVE_") ? "move" :
+    s.phase.startsWith("MISSILE_") ? "missile" : null;
+  if (!kind) return "normal";
+  const used = kind === "move" ? s.moveVisited.includes(tower.id) :
+    s.visitedRelayTowerIds.has(tower.id);
+  return used ? "used" : "available";
+}
 export function hitRole(s, owner) {
-  const hostile = isEnemyTerritory(s, owner);
+  const hostile = isDamagingEnemyTerritory(s, owner);
   if (hostile) damage(s, owner);
   return hostile;
 }
@@ -408,6 +424,7 @@ export function endTurn(s) {
   s.relay = null;
   s.charge = 0;
   s.visitedRelayTowerIds.clear();
+  s.moveVisited = [];
   for (const t of s.towers) t.relayUsed = false;
   return true;
 }

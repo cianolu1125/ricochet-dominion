@@ -1,4 +1,4 @@
-export const VERSION = "0.5.1";
+export const VERSION = "0.5.2";
 export const NAMES = { 1: "红方", 2: "蓝方" };
 export const PROFILES = {
   phone: [18, 32],
@@ -10,7 +10,7 @@ export const CONFIG = Object.freeze({
   hp: 10,
   deployHeal: 1,
   maxTowers: 5,
-  threshold: 0.8,
+  threshold: 0.6,
   rounds: [10, 14, 18],
   initialTowerStage: 2,
   rotationMs: 400,

@@ -1,3 +1,4 @@
+import { relayStatus } from "./engine.js";
 import { tilePresentation } from "./feedback.js";
 import { drawEffects } from "./effects.js";
 import { toView } from "./view.js";
@@ -192,7 +193,28 @@ export function render(canvas, s, v) {
     ctx.setLineDash([]);
     ctx.fillStyle = TEAM[t.owner] + "77";
     ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
-    if (s.visitedRelayTowerIds.has(t.id)) {
+    const relay = relayStatus(s, t);
+    if (relay === "available") {
+      ctx.save();
+      ctx.globalAlpha = v.reduced ? 0.85 : 0.78 + Math.sin(v.time / 240) * 0.10;
+      ctx.strokeStyle = TEAM[t.owner];
+      ctx.lineWidth = 0.045;
+      ctx.shadowColor = TEAM[t.owner];
+      ctx.shadowBlur = v.reduced ? 0 : 0.16 * tile;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 0.57, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    const captured = v.effects.find(e =>
+      (e.type === "capture" || e.type === "charge") &&
+      e.x === t.pos.x + 0.5 && e.y === t.pos.y + 0.5 &&
+      v.time - e.born >= 0 && v.time - e.born < 160);
+    if (captured && !v.reduced) {
+      const q = (v.time - captured.born) / 160;
+      circle(p, 0.57 * (1 - q) + 0.1 * q, TEAM[t.owner], true);
+    }
+    if (relay === "used") {
       ctx.strokeStyle = TEAM[t.owner] + "66";
       ctx.lineWidth = 0.025;
       ctx.beginPath();

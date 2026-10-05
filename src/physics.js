@@ -184,7 +184,7 @@ export function carryAlong(s, m, a, b) {
   const owner = m.carried;
   for (const p of traverseCells(s, a, b)) {
     s.players[owner].pos = p;
-    const hostile = E.isEnemyTerritory(s, owner, p);
+    const hostile = E.isDamagingEnemyTerritory(s, owner, p);
     if (!m.wasEnemy && hostile) {
       const previous = s.feedbackGroup;
       s.feedbackGroup = null;
@@ -222,7 +222,7 @@ export function releaseBefore(s, m, t, checkDamage = true) {
   const p =
     cells.find((p) => !E.same(p, t.pos) && E.legalLanding(s, p, owner)) ||
     E.nearestLanding(s, E.grid(s, m), owner);
-  const hostile = E.isEnemyTerritory(s, owner, p);
+  const hostile = E.isDamagingEnemyTerritory(s, owner, p);
   if (checkDamage && !m.wasEnemy && hostile) {
     s.feedbackPosition = { x: p.x + 0.5, y: p.y + 0.5 };
     E.damage(s, owner);
@@ -254,6 +254,7 @@ function finish(s, m, blast = true, center = null, releasedOwner = null) {
   s.phase = "IDLE";
   s.committed = false;
   s.visitedRelayTowerIds.clear();
+  s.moveVisited = [];
   for (const t of s.towers) t.relayUsed = false;
 }
 export function cancelAim(s) {
@@ -340,10 +341,7 @@ function tick(s, dt, events) {
     if (hit.type === "tower") {
       const t = hit.tower,
         ready =
-          t.owner === s.current &&
-          (m.kind === "move"
-            ? !s.moveVisited.includes(t.id)
-            : !s.visitedRelayTowerIds.has(t.id));
+          E.relayStatus(s, t, m.kind) === "available";
       if (ready) {
         if (m.carried) releaseBefore(s, m, t);
         if (s.winner) return;
