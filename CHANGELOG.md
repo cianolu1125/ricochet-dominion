@@ -1,3 +1,20 @@
+## v0.5.2 · 2026-10-05
+
+- 领土胜利阈值改为 60%，保持整 Round 结束检查。
+- Temporary 保留所有权、面积和争夺规则，统一取消所有 Territory HP 伤害资格；Stable / Protected 继续判伤。
+- 点击移动／飞弹即显示可用据点能量细环；本链使用后显示淡断环，状态与碰撞资格共用规则入口。
+- 保留部署 +1 HP、物理、Charge、音效和顶部进度轨。186 项回归测试通过。
+
+# v0.5.1 — 2026-10-05
+
+- Enemy-color-only territory damage at impact, carried entry and relay release; neutral/friendly tiles are safe regardless of stability or protection.
+- Carried explosion/siege commits landing and paint before one final HP check. Fatal final damage preserves completed paint; earlier fatal hits still stop immediately.
+- Successful new/redeployed outposts restore 1 HP, capped at 10, once per action. Green +1 HP (900ms) and role highlight (500ms); no recovery sound/shake, no false full-HP prompt.
+- All protected tiles stop each crosscut ray independently. Beam endpoints match blocking edges; square blast rules remain unchanged.
+- Independent corner lock frames per protected tile replace merged area outlines.
+- Turn/click/progress wakes the relay HUD: 200ms enter, 2500ms hold, 800ms fade. Completed relay results remain through their display envelope; triggers restart smoothly.
+- 175 automated rule, UI, full-match, audio and stress checks, syntax validation, production build and native Canvas inspections. Real-device performance/audio and live browser QA remain unverified.
+
 # v0.5.0 — 2026-10-04
 
 - Confirmed 1/3/5 real tower-capture thresholds, base carry, graded area/cross paint and direct-hit-only siege.
