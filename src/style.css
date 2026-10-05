@@ -702,7 +702,7 @@ h2 {
 }
 .mode-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 .mode-grid button {
@@ -714,35 +714,14 @@ h2 {
   font-size: 12px;
   color: #90aec4;
 }
-.custom-controls {
-  display: grid;
-  grid-template-columns: 1fr 68px;
-  align-items: center;
-  gap: 10px;
-  margin-top: 18px;
-  font-size: 14px;
-}
-.custom-controls input[type="range"] {
-  grid-column: 1/-1;
-  width: 100%;
-  height: 36px;
-  accent-color: var(--blue);
-}
-.custom-controls input[type="number"] {
-  width: 68px;
-  min-height: 44px;
-  border: 1px solid #9bc7f052;
-  border-radius: 6px;
-  background: #0a1622;
-  color: #d5eaff;
-  text-align: center;
-}
 .sound-status {
   font-size: 12px;
   color: #90aec4;
 }
-#custom-error {
-  grid-column: 1 / -1;
-  color: #f6b37c;
-  font-size: 11px;
-}
+
+
+#stack button.takeover {border-color:#b9b7cd;background:linear-gradient(115deg,#efaaa21c,#9bc7f01c),#102334ed;box-shadow:inset 2px 0 #efaaa27a,inset -2px 0 #9bc7f07a;}
+#stack button.reclaim {border-color:var(--team);box-shadow:inset 0 -1px var(--team);}
+#stack:has(.back):has(p) .branch-lines {opacity:.5;}
+#relay-hud.overload .relay-node.lit.latest {outline:1px dashed var(--relay-team);outline-offset:3px;}
+#relay-hud.shielded .relay-node.lit.latest {box-shadow:0 0 8px var(--relay-team);}

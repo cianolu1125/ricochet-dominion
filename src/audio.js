@@ -1,5 +1,8 @@
 // Short authored composites share one limited bus; there is no playback backlog.
 const voices = {
+  overload: [310, 105, .18, .028], shielded: [420, 790, .16, .032],
+  takeoverStart: [380, 540, .13, .033], takeoverComplete: [170, 670, .55, .065],
+  reclaim: [240, 620, .24, .04], restore: [220, 480, .20, .028],
   ui: [660, 480, 0.055, 0.022],
   launch: [420, 140, 0.14, 0.055],
   fire: [720, 210, 0.16, 0.06],

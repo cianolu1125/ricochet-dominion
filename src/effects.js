@@ -8,6 +8,7 @@ export function drawEffects(
   team,
   reduced,
   rotation = 0,
+  labels = {},
 ) {
   let budget = reduced ? 24 : 180;
   const ring = (x, y, r, color, alpha = 1, width = 0.035) => {
@@ -27,14 +28,46 @@ export function drawEffects(
     ctx.fill();
   };
   for (const e of events) {
+    const strategic = ['overload','shielded','takeoverStart','takeoverComplete','reclaim','restore','disconnect','reconnect'].includes(e.type);
     const age = time - e.born,
-      duration = e.duration || effectDuration(e),
+      duration = reduced && strategic ? 240 : e.duration || effectDuration(e),
       q = Math.max(0, Math.min(1, age / duration));
     if (age < 0 || q >= 1) continue;
     const p = pt(e),
       color = team[e.owner] || team[1];
     ctx.save();
-    if (e.type === "bounce") {
+    if(strategic) {
+      const complete=e.type==='takeoverComplete', restarting=['reclaim','restore','reconnect'].includes(e.type);
+      if(reduced) {
+        // Short stationary structure/color switch, without propagation or core motion.
+        ctx.globalAlpha = 1-q;
+        ctx.strokeStyle = complete && q < .35 ? team[e.targetOwner] || color : color;
+        ctx.lineWidth = .045;
+        ctx.strokeRect(p.x-.30,p.y-.30,.60,.60);
+      } else if(complete) {
+        // One 750ms composite: retract old core, ignite new core, then activate the mature range.
+        const old=team[e.targetOwner]||color;
+        if(q<.28){const r=.33*(1-q/.28);ctx.globalAlpha=1-q;ctx.strokeStyle=old;ctx.lineWidth=.045;ctx.strokeRect(p.x-r,p.y-r,r*2,r*2);}
+        if(q>=.20&&q<.55){const energy=Math.sin((q-.20)/.35*Math.PI);point(p.x,p.y,.14+energy*.11,color,energy);}
+        if(q>.38){const travel=(q-.38)/.62;ring(p.x,p.y,.4+travel*((e.stage||1)+.5),color,(1-travel)*.6,.035);}
+      } else if(e.type==='shielded') {
+        if(e.source&&!reduced){const a=pt(e.source);ctx.globalAlpha=Math.sin(q*Math.PI)*.5;ctx.strokeStyle=color;ctx.lineWidth=.025;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke();}
+        ring(p.x,p.y,.32+q*.32,color,Math.sin(q*Math.PI)*.6,.025);
+      } else if(restarting) {
+        point(p.x,p.y,.13,color,1-q);
+        ring(p.x,p.y,.3+q*((e.stage||1)+.35),color,(1-q)*.48,.028);
+      } else if(e.type==='disconnect'||e.type==='overload') {
+        ctx.globalAlpha=(1-q)*.32;ctx.strokeStyle=color;ctx.lineWidth=.025;ctx.setLineDash([.10,.20]);
+        ctx.beginPath();ctx.arc(p.x,p.y,.5+q*1.4,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      }else{
+        ring(p.x,p.y,.70-q*.14,color,Math.sin(q*Math.PI)*.5,.028);
+      }
+      const label=labels[e.type];
+      if(label && !['reclaim','restore','disconnect','reconnect'].includes(e.type)) {
+        ctx.translate(p.x,p.y);ctx.rotate(-rotation);ctx.globalAlpha=Math.min(1,age/70)*Math.max(0,1-Math.max(0,q-.68)/.32);
+        ctx.fillStyle=color;ctx.font='600 .44px system-ui';ctx.textAlign='center';ctx.fillText(label,0,-1.04-(reduced?0:q*.16));
+      }
+    } else if (e.type === "bounce") {
       for (let n = 0; n < (reduced ? 2 : 3); n++) {
         if (budget-- <= 0) break;
         const a =

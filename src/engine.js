@@ -1,6 +1,8 @@
+import { activeTower, recoverExpiredOverloads, resolveDueTakeovers } from "./outposts.js";
+export { activeTower, applyRelayOverload, hasExternalFriendlyProtection, getTakeoverCandidates, getReclaimCandidates, getRedeployableOwnedTowers, outpostAction, startTakeover, reclaimTower } from "./outposts.js";
 import { refreshClaims } from "./claims.js";
 import { paintTargets, crossTrace } from "./charge.js";
-import { fact } from "./feedback-events.js";
+import { fact, feedbackId } from "./feedback-events.js";
 import { CONFIG, NAMES, PROFILES } from "./config.js";
 export const enemy = (p) => 3 - p;
 export const same = (a, b) => a.x === b.x && a.y === b.y;
@@ -23,8 +25,7 @@ export function log(s, text) {
 export function createGame(maxRounds = 14, profile = "phone") {
   if (
     !Number.isInteger(maxRounds) ||
-    maxRounds < 1 ||
-    maxRounds > 100 ||
+    !CONFIG.rounds.includes(maxRounds) ||
     !PROFILES[profile]
   )
     throw Error("Invalid match configuration");
@@ -63,7 +64,7 @@ export function createGame(maxRounds = 14, profile = "phone") {
     const pos = desktop
       ? { x: owner === 1 ? 1 : width - 2, y: Math.floor(height / 2) }
       : { x: Math.floor(width / 2), y: owner === 1 ? height - 2 : 1 };
-    s.players[owner] = { hp: CONFIG.hp, maxHp: CONFIG.hp, pos, turns: owner === 1 ? 1 : 0 };
+    s.players[owner] = { hp: maxRounds, maxHp: maxRounds, pos, turns: owner === 1 ? 1 : 0 };
     for (let y = 0; y < height; y++)
       for (let x = 0; x < width; x++)
         if (
@@ -84,6 +85,7 @@ export function createGame(maxRounds = 14, profile = "phone") {
       stage: CONFIG.initialTowerStage,
       protected: [],
       relayUsed: false,
+      state: "normal",
     };
     s.towers.push(t);
     expand(s, t);
@@ -99,7 +101,7 @@ export function counts(s) {
 }
 export function protectedOwner(s, i) {
   return (
-    s.towers.find((t) => s.cells[i] === t.owner && t.protected.includes(i))
+    s.towers.find((t) => activeTower(t) && s.cells[i] === t.owner && t.protected.includes(i))
       ?.owner || 0
   );
 }
@@ -107,6 +109,7 @@ export function recompute(s) {
   s.protectedBy = Array.from({ length: s.cells.length }, () => []);
   for (const t of s.towers) {
     t.protected = [];
+    if (!activeTower(t)) continue;
     for (let y = t.pos.y - t.stage; y <= t.pos.y + t.stage; y++)
       for (let x = t.pos.x - t.stage; x <= t.pos.x + t.stage; x++)
         if (inside(s, { x, y })) {
@@ -121,7 +124,7 @@ export function recompute(s) {
   for (const owner of [1, 2]) {
     const q = [],
       seen = new Set();
-    for (const t of s.towers.filter((t) => t.owner === owner)) {
+    for (const t of s.towers.filter((t) => t.owner === owner && activeTower(t))) {
       const i = index(s, t.pos);
       if (s.cells[i] === owner && !seen.has(i)) {
         seen.add(i);
@@ -181,7 +184,7 @@ export function removeTower(s, t) {
 }
 export function growTowers(s, owner) {
   for (const t of s.towers
-    .filter((t) => t.owner === owner && t.stage < 2)
+    .filter((t) => t.owner === owner && activeTower(t) && t.stage < 2 && t.activationTurn !== s.turnIndex)
     .sort((a, b) => a.id - b.id)) {
     t.stage++;
     expand(s, t);
@@ -217,7 +220,7 @@ export function towerReason(s) {
 export function buildTower(s, slot) {
   if (s.winner || s.players[s.current].hp <= 0 || s.phase !== "IDLE" || !s.actionAvailable || towerReason(s)) return false;
   const own = s.towers.filter((t) => t.owner === s.current);
-  if (own.length === 5 && !own.some((t) => t.slot === slot)) return false;
+  if (own.length === 5 && !own.some((t) => t.slot === slot && activeTower(t))) return false;
   const i = index(s, s.players[s.current].pos),
     target = s.cells[i];
   const claimed =
@@ -238,6 +241,7 @@ export function buildTower(s, slot) {
     stage: 0,
     protected: [],
     relayUsed: false,
+      state: "normal",
   };
   s.towers.push(t);
   expand(s, t);
@@ -262,7 +266,7 @@ export function buildTower(s, slot) {
 export function nearbyTowers(s) {
   const i = index(s, s.players[s.current].pos);
   return s.towers.filter(
-    (t) => t.owner !== s.current && t.protected.includes(i),
+    (t) => t.owner !== s.current && activeTower(t) && t.protected.includes(i),
   );
 }
 export function dismantle(s, id) {
@@ -331,7 +335,7 @@ export function isDamagingEnemyTerritory(s, owner, position = s.players[owner].p
 }
 // Action-scoped state shared by collision rules and presentation.
 export function relayStatus(s, tower, kind = null) {
-  if (s.winner || !s.towers.includes(tower) || tower.owner !== s.current) return "normal";
+  if (s.winner || !activeTower(tower) || !s.towers.includes(tower) || tower.owner !== s.current) return "normal";
   if (!kind) kind = s.phase.startsWith("MOVE_") ? "move" :
     s.phase.startsWith("MISSILE_") ? "missile" : null;
   if (!kind) return "normal";
@@ -430,8 +434,11 @@ export function endTurn(s) {
 }
 export function beginTurn(s) {
   if (s.phase !== "HANDOFF") return false;
+  s.feedbackGroup = feedbackId();
   s.turnIndex++;
   s.players[s.current].turns++;
+  recompute(s);
+  resolveDueTakeovers(s, s.current);
   recompute(s);
   const due = s.claims.filter(
     (c) =>
@@ -458,6 +465,7 @@ export function beginTurn(s) {
     });
   s.claims = s.claims.filter((c) => !due.includes(c));
   recompute(s);
+  recoverExpiredOverloads(s, s.current);
   growTowers(s, s.current);
   recompute(s);
   for (const t of s.towers.filter((t) => t.owner === s.current))
@@ -465,7 +473,9 @@ export function beginTurn(s) {
   s.moveAvailable = true;
   s.actionAvailable = true;
   s.committed = false;
+  s.terminalActionCommitted = false;
   s.phase = "IDLE";
+  s.feedbackGroup = null;
   log(s, `${NAMES[s.current]}回合`);
   return true;
 }

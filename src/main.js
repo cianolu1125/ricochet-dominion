@@ -15,9 +15,7 @@ const $ = (id) => document.getElementById(id),
   canvas = $("board"),
   reduced = matchMedia("(prefers-reduced-motion: reduce)"),
   touch = () => matchMedia("(pointer: coarse)").matches;
-let customRounds = 14,
-  selectedMode = "standard",
-  selectedRounds = 14,
+let selectedRounds = 14,
   state = E.createGame(14, profileFor(innerWidth, innerHeight, touch())),
   viewOwner = 1,
   rotation = 0,
@@ -28,6 +26,7 @@ let customRounds = 14,
   opponentClosingUntil = 0,
   menuLevel = null,
   selection = null,
+  takeoverTargetId = null,
   aim = null,
   pointer = null,
   dragStart = null,
@@ -59,15 +58,6 @@ try {
     localStorage.getItem("rd-reduced") === null
       ? reduced.matches
       : localStorage.getItem("rd-reduced") === "on";
-} catch {}
-try {
-  customRounds = Math.max(
-    1,
-    Math.min(
-      100,
-      Math.round(Number(localStorage.getItem("rd-custom") || 14)) || 14,
-    ),
-  );
 } catch {}
 const relayHUD = new RelayHUD($("relay-hud"));
 const audio = new AudioDirector({ enabled: sound, volume });
@@ -200,7 +190,7 @@ function playerHUD(owner) {
   const p = state.players[owner],
     c = E.counts(state),
     n = state.towers.filter((t) => t.owner === owner).length;
-  return `<strong>${teamName(owner)} <span>${p.hp}/10 HP</span></strong><div class="hp-bar" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i < p.hp ? "" : "empty"}"></i>`).join("")}</div><div class="stats">${((100 * c[owner]) / state.cells.length).toFixed(1)}% · □ ${n}/5</div>`;
+  return `<strong>${teamName(owner)} <span>${p.hp}/${p.maxHp} HP</span></strong><div class="hp-bar" aria-hidden="true">${Array.from({ length: p.maxHp }, (_, i) => `<i class="${i < p.hp ? "" : "empty"}"></i>`).join("")}</div><div class="stats">${((100 * c[owner]) / state.cells.length).toFixed(1)}% · □ ${n}/5</div>`;
 }
 const button = (action, label, reason = "", cls = "") =>
   `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}</button>`;
@@ -231,12 +221,9 @@ function drawStack() {
       ) +
       button(
         "tower",
-        t(
-          state.towers.filter((t) => t.owner === state.current).length === 5
-            ? "Redeploy Outpost"
-            : "Build Outpost",
-        ),
+        t({deploy:'Build Outpost',redeploy:'Redeploy Outpost',takeover:'Take Over',reclaim:'Reclaim'}[E.outpostAction(state).kind]),
         towerReason(),
+        E.outpostAction(state).kind,
       ) +
       button(
         "dismantle",
@@ -246,7 +233,7 @@ function drawStack() {
       button("root", t("Back"), "", "back");
   else
     stack.innerHTML =
-      `<p>${t("Select Outpost")}</p>` + button("action", t("Back"), "", "back");
+      `<p>${t(selection === "takeover-replace" ? "Select replacement" : selection === "takeover" ? "Select takeover" : selection === "reclaim" ? "Select reclaim" : "Select Outpost")}</p>` + button("action", t("Back"), "", "back");
   stack.insertAdjacentHTML(
     "afterbegin",
     '<svg class="branch-lines" aria-hidden="true"></svg>',
@@ -254,8 +241,8 @@ function drawStack() {
   positionMenu();
 }
 function towerReason() {
-  const reason = E.towerReason(state);
-  return reason ? t(reason.includes("脚下") ? "Occupied" : "Protected") : "";
+  const reason = E.outpostAction(state).reason;
+  return reason ? t(reason.includes("脚下") ? "Occupied" : reason.includes("保护") ? "Protected" : reason) : "";
 }
 function positionMenu() {
   const stack = $("stack");
@@ -377,7 +364,7 @@ function update() {
   $("charge").hidden = !state.phase.startsWith("MISSILE");
   $("charge").textContent =
     t("Charge") + " " + ["0", "Ⅰ", "Ⅱ", "Ⅲ"][state.charge];
-  $("hint").textContent = selection ? t("Select Outpost") : "";
+  $("hint").textContent = selection ? t(selection === "takeover-replace" ? "Select replacement" : "Select Outpost") : "";
   const switching =
     rotationStart !== null || observeUntil !== null || settlingUntil !== null;
   $("toolbar").classList.toggle("switching", switching);
@@ -450,6 +437,7 @@ function clearMatch() {
   dragStart = null;
   aim = null;
   selection = null;
+  takeoverTargetId = null;
   menuLevel = null;
   rotationStart = null;
   observeUntil = null;
@@ -470,7 +458,7 @@ function home() {
   settingsOrigin = "home";
   panel(
     "home",
-    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${t("Subtitle")}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${selectedMode !== "custom" && n === selectedRounds ? "selected" : ""}">${t({ 10: "Quick", 14: "Standard", 18: "Long" }[n])}<small>${n} ${t("Rounds")}</small></button>`).join("")}<button data-panel="custom" class="${selectedMode === "custom" ? "selected" : ""}">${t("Custom")}<small>${customRounds} ${t("Rounds")}</small></button></div>${selectedMode === "custom" ? `<div class="custom-controls"><label for="custom-rounds">${t("Round Limit")}</label><input id="custom-number" type="number" inputmode="numeric" min="1" max="100" step="1" value="${customRounds}" aria-label="${t("Round Limit")}"><input id="custom-rounds" type="range" min="1" max="100" step="1" value="${customRounds}" aria-label="${t("Round Limit")}"><small id="custom-error" role="status"></small></div>` : ""}<button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer" disabled>${t("vs Computer")}<small>${t("Coming Soon")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><p class="version">v${VERSION}</p>`,
+    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${t("Subtitle")}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${t({10:"Quick",14:"Standard",18:"Long"}[n])}<small>${n} ${t("Rounds")}<br>${n} HP</small></button>`).join("")}</div><button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer" disabled>${t("vs Computer")}<small>${t("Coming Soon")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><p class="version">v${VERSION}</p>`,
   );
 }
 function start() {
@@ -595,22 +583,19 @@ function doAction(action) {
   selection = null;
   aim = null;
   pointer = null;
-  if (action === "root" || action === "action") menuLevel = action;
+  if (action === "root" || action === "action") {menuLevel = action;takeoverTargetId=null;}
   else if (action === "move" || action === "missile") {
     E.chooseAim(state, action === "move" ? "move" : "missile");
     menuLevel = null;
   } else if (action === "tower") {
-    if (towerReason()) {
-      toast(E.towerReason(state).includes("脚下") ? "Occupied" : "Protected");
-      return;
-    }
-    if (state.towers.filter((t) => t.owner === state.current).length === 5) {
-      selection = "redeploy";
-      menuLevel = "redeploy";
-    } else {
-      E.buildTower(state);
-      menuLevel = "root";
-    }
+    const operation=E.outpostAction(state);
+    if (towerReason()) {toast(towerReason());return;}
+    if (operation.kind === "takeover" || operation.kind === "reclaim") {
+      if (operation.targets.length === 1) commitStrategicTarget(operation.targets[0],operation.kind);
+      else {selection=operation.kind;menuLevel="target-select";}
+    } else if (operation.kind === "redeploy") {
+      selection="redeploy";menuLevel="redeploy";
+    } else {E.buildTower(state);menuLevel="root";}
   } else if (action === "dismantle") {
     const towers = E.nearbyTowers(state);
     if (towers.length === 1) {
@@ -622,8 +607,24 @@ function doAction(action) {
     }
   }
   visualChanges(before);
-  tone();
+  if (state.phase === "HANDOFF") {
+    menuLevel=null;selection=null;takeoverTargetId=null;
+    hideOpponent();ready();
+  }
   update();
+}
+function selectionTargets() {
+  return selection === "redeploy" || selection === "takeover-replace" ? E.getRedeployableOwnedTowers(state) :
+    selection === "takeover" ? E.getTakeoverCandidates(state) :
+    selection === "reclaim" ? E.getReclaimCandidates(state) : E.nearbyTowers(state);
+}
+function commitStrategicTarget(target,kind) {
+  if (kind === "reclaim") return E.reclaimTower(state,target.id);
+  if (state.towers.filter(t=>t.owner===state.current).length >= CONFIG.maxTowers) {
+    takeoverTargetId=target.id;selection="takeover-replace";menuLevel="replace-select";
+    return false;
+  }
+  return E.startTakeover(state,target.id);
 }
 $("stack").addEventListener("click", (event) => {
   const b = event.target.closest("[data-action]");
@@ -663,11 +664,6 @@ $("panel").addEventListener("click", (event) => {
     }
   } else if (action.startsWith("round-")) {
     selectedRounds = Number(action.slice(6));
-    selectedMode = { 10: "quick", 14: "standard", 18: "long" }[selectedRounds];
-    home();
-  } else if (action === "custom") {
-    selectedMode = "custom";
-    selectedRounds = customRounds;
     home();
   } else if (action.startsWith("lang-")) {
     setLanguage(action === "lang-en" ? "en" : "zh-CN");
@@ -780,26 +776,22 @@ function pointerDown(event) {
     hideOpponent();
   }
   if (selection) {
-    const valid =
-      selection === "redeploy"
-        ? state.towers.filter((t) => t.owner === state.current)
-        : E.nearbyTowers(state);
-    const t = valid.find(
-      (t) =>
-        (Math.hypot(t.pos.x + 0.5 - p.x, t.pos.y + 0.5 - p.y) *
-          canvas.clientWidth) /
-          state.width <
-        Math.max(22, (canvas.clientWidth / state.width) * 0.8),
-    );
-    if (t) {
-      const before = visualSnapshot();
-      if (selection === "redeploy") E.buildTower(state, t.slot);
-      else E.dismantle(state, t.id);
-      menuLevel = "root";
-      selection = null;
+    const valid=selectionTargets();
+    const tile=boardViewport().tile;
+    const t=valid.map(t=>({tower:t,d:Math.hypot(t.pos.x+.5-p.x,t.pos.y+.5-p.y)*tile}))
+      .sort((a,b)=>a.d-b.d).find(a=>a.d<Math.max(22,tile*.8))?.tower;
+    if(t) {
+      const before=visualSnapshot();
+      const kind=selection;
+      if(kind==='redeploy')E.buildTower(state,t.slot);
+      else if(kind==='takeover-replace')E.startTakeover(state,takeoverTargetId,t.id);
+      else if(kind==='takeover'||kind==='reclaim')commitStrategicTarget(t,kind);
+      else E.dismantle(state,t.id);
+      if(selection!=='takeover-replace'||kind==='takeover-replace') {menuLevel='root';selection=null;takeoverTargetId=null;}
       visualChanges(before);
+      if(state.phase==='HANDOFF'){selection=null;takeoverTargetId=null;hideOpponent();ready();}
       update();
-    }
+    }else{selection=null;takeoverTargetId=null;menuLevel='action';update();}
     return;
   }
   if (!state.phase.includes("AIM")) return;
@@ -929,6 +921,7 @@ document.addEventListener("keydown", (e) => {
     }
     menuLevel = "root";
     selection = null;
+    takeoverTargetId = null;
     aim = null;
     pointer = null;
     update();
@@ -997,6 +990,8 @@ function frame(time) {
     rotation,
     aim,
     select: selection,
+    selectIds: selection ? selectionTargets().map(t=>t.id) : [],
+    labels: {overload:t("Overload"),shielded:t("Shielded"),takeoverStart:t("Takeover pending"),takeoverComplete:t("Takeover complete"),reclaim:t("Reclaimed")},
     effects,
     transitions,
     time,
@@ -1075,6 +1070,7 @@ if (document.modelContext?.registerTool)
             territory: E.counts(state),
             towers: structuredClone(state.towers),
             claims: structuredClone(state.claims),
+            outpostAction: E.outpostAction(state).kind,
             winner: state.winner,
           };
         },
@@ -1088,26 +1084,6 @@ $("panel").addEventListener("input", (event) => {
     $("volume-value").textContent = Math.round(volume * 100) + "%";
   }
 });
-$("panel").addEventListener("input", (event) => {
-  if (event.target.id === "custom-rounds") setCustom(event.target.value);
-});
-$("panel").addEventListener("change", (event) => {
-  if (event.target.id === "custom-number") setCustom(event.target.value);
-});
-function setCustom(value) {
-  const number = Number(value);
-  const valid = String(value).trim() !== "" && Number.isFinite(number);
-  $("custom-error").textContent = valid
-    ? ""
-    : t("Enter a round count from 1 to 100");
-  if (valid) customRounds = Math.max(1, Math.min(100, Math.round(number)));
-  selectedRounds = customRounds;
-  $("custom-number").value = customRounds;
-  $("custom-rounds").value = customRounds;
-  try {
-    localStorage.setItem("rd-custom", String(customRounds));
-  } catch {}
-}
 window.addEventListener("focus", () => audio.resume());
 document.addEventListener("pointerdown", () => audio.unlock(), {
   capture: true,

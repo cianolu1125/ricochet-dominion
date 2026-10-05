@@ -3,6 +3,8 @@ export function snapshot(s) {
   return {
     cells: [...s.cells],
     stability: [...s.stability],
+    protectedBy: structuredClone(s.protectedBy),
+    pending: s.cells.map((_,i)=>s.claims.find(c=>c.cells.includes(i))?.captor||0),
     towers: structuredClone(s.towers),
     claims: structuredClone(s.claims),
   };
@@ -13,7 +15,8 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
   const impact =
     events.find((e) => e.type === "siege") ||
     events.find((e) => e.type === "blast");
-  const groupId = impact?.groupId || feedbackId();
+  const strategic = events.find(e=>["takeoverComplete","takeoverStart","reclaim","overload","shielded","restore"].includes(e.type));
+  const groupId = strategic?.groupId || impact?.groupId || feedbackId();
   const extras = [];
   const emit = (type, position, meta = {}) =>
     extras.push({
@@ -31,7 +34,7 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
   for (const t of removed)
     if (impact?.type !== "siege")
       emit(
-        t.owner === s.current && added.length ? "redeploy" : "destroy",
+        (t.owner === s.current && added.length) || strategic?.type === "takeoverStart" ? "redeploy" : "destroy",
         { x: t.pos.x + 0.5, y: t.pos.y + 0.5 },
         { owner: t.owner },
       );
@@ -49,7 +52,7 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
     .flatMap((c) => c.sources)
     .map((id) => s.towers.find((t) => t.id === id))
     .find(Boolean);
-  const anchor = impact ||
+  const anchor = strategic || impact ||
     (added[0] && { x: added[0].pos.x + 0.5, y: added[0].pos.y + 0.5 }) ||
     (source && { x: source.pos.x + 0.5, y: source.pos.y + 0.5 }) ||
     (removed[0] && {
@@ -113,7 +116,9 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
         )
           waveCells.add(i);
       }
-  const cells = new Set([...waveCells, ...disconnected, ...reconnected]);
+  const protectionChanged=s.cells.map((_,i)=>i).filter(i=>Boolean(before.protectedBy?.[i]?.length)!==Boolean(s.protectedBy[i]?.length));
+  const pendingChanged=s.cells.map((_,i)=>i).filter(i=>(before.pending?.[i]||0)!==(s.claims.find(c=>c.cells.includes(i))?.captor||0));
+  const cells = new Set([...waveCells, ...disconnected, ...reconnected, ...protectionChanged, ...pendingChanged]);
   const distance = (i, a) =>
     Math.hypot((i % s.width) + 0.5 - a.x, Math.floor(i / s.width) + 0.5 - a.y);
   const maxDistance = Math.max(
@@ -122,7 +127,7 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
   );
   for (const i of cells) {
     const colorChanged = before.cells[i] !== s.cells[i],
-      wave = waveCells.has(i);
+      wave = colorChanged && waveCells.has(i);
     let a = anchor,
       delay;
     if (!impact && !converted.includes(i) && grown.length) {
@@ -130,7 +135,9 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
         .map((t) => ({ x: t.pos.x + 0.5, y: t.pos.y + 0.5 }))
         .sort((a, b) => distance(i, a) - distance(i, b))[0];
     }
-    if (cross) {
+    if (!colorChanged && !wave) {
+      delay=(distance(i,anchor)/maxDistance)*(disconnected.includes(i)?150:80);
+    } else if (cross) {
       const d = Math.max(
         Math.abs((i % s.width) + 0.5 - cross.x),
         Math.abs(Math.floor(i / s.width) + 0.5 - cross.y),
@@ -164,7 +171,9 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
       toTemporary: s.stability[i] === "temporary",
       born: time,
       delay: reduced ? 0 : delay,
-      duration: reduced ? 90 : wave ? 340 : 200,
+      duration: reduced ? 90 : wave ? 340 : disconnected.includes(i) ? 300 : 280,
+      fromProtected: Boolean(before.protectedBy?.[i]?.length),
+      fromPending: before.pending?.[i] || 0,
       wave,
       soft: !impact && !converted.includes(i),
     });

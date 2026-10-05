@@ -353,6 +353,7 @@ function tick(s, dt, events) {
           t.relayUsed = true;
           s.visitedRelayTowerIds.add(t.id);
           s.charge = chargeFromRelays(s.visitedRelayTowerIds.size);
+          E.applyRelayOverload(s, t);
         }
         s.activeBody = null;
         s.relay = { pos: { ...t.pos }, id: t.id };

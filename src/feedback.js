@@ -1,4 +1,5 @@
 const priority = {
+  takeoverComplete: 95, takeoverStart: 82, reclaim: 70, overload: 52, shielded: 52, restore: 38,
   siege: 100,
   complete: 110,
   convert: 90,
@@ -30,6 +31,8 @@ export function chargeSpec(level, maxed = false) {
   ][Math.max(0, Math.min(2, level - 1))];
 }
 export function effectDuration(e) {
+  const strategic = {takeoverComplete:750,takeoverStart:900,overload:700,shielded:600,reclaim:e.stage===2?320:240,restore:e.stage===2?320:240,disconnect:450,reconnect:350};
+  if (strategic[e.type]) return strategic[e.type];
   return e.type === "heal"
     ? 900
     : e.type === "damage"
@@ -98,8 +101,6 @@ export class FeedbackDirector {
           "ui",
           "handoff",
           "complete",
-          "disconnect",
-          "reconnect",
           "convert",
         ].includes(e.type)
       )

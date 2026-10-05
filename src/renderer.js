@@ -75,8 +75,8 @@ export function render(canvas, s, v) {
         transition && show.progress < 0.7
           ? transition.fromTemporary
           : s.stability[i] === "temporary";
-      const targetAlpha = s.stability[i] === "temporary" ? 0.58 : 1,
-        fromAlpha = transition?.fromTemporary ? 0.58 : 1;
+      const targetAlpha = s.stability[i] === "temporary" ? 0.86 : 1,
+        fromAlpha = transition?.fromTemporary ? 0.86 : 1;
       if (show.lift > 0) {
         ctx.globalAlpha = show.lift * 0.3;
         ctx.fillStyle = "#020a12";
@@ -96,36 +96,41 @@ export function render(canvas, s, v) {
       }
       ctx.globalAlpha = 1;
       if (temporary) {
-        ctx.strokeStyle = TEAM[o] + "36";
-        ctx.lineWidth = 0.025;
-        ctx.beginPath();
-        ctx.moveTo(p.x - 0.32, p.y + 0.3);
-        ctx.lineTo(p.x + 0.3, p.y - 0.32);
-        ctx.moveTo(p.x - 0.4, p.y - 0.03);
-        ctx.lineTo(p.x - 0.03, p.y - 0.4);
-        ctx.stroke();
+        const drift=v.reduced ? .25 : Math.sin(v.time/530 + (x+y)*.16)*.11;
+        const shadow=ctx.createLinearGradient(p.x-.5+drift,p.y-.5,p.x+.5+drift,p.y+.5);
+        shadow.addColorStop(0,'#08142108');shadow.addColorStop(.55,'#08142132');shadow.addColorStop(1,'#08142190');
+        ctx.fillStyle=shadow;ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
+        ctx.strokeStyle=TEAM[o]+'55';ctx.lineWidth=Math.max(.025,.6/tile);
+        // Sparse interrupted diagonal gives a static cue at low brightness and reduced motion.
+        ctx.beginPath();ctx.moveTo(p.x-.30,p.y+.29);ctx.lineTo(p.x-.02,p.y+.01);ctx.moveTo(p.x+.09,p.y-.1);ctx.lineTo(p.x+.29,p.y-.30);ctx.stroke();
       }
-      if (s.protectedBy[i]?.length) {
-        ctx.fillStyle = TEAM[o] + "0c";
-        ctx.fillRect(p.x - 0.44, p.y - 0.44, 0.88, 0.88);
-        ctx.strokeStyle = TEAM[o] + "48";
-        ctx.lineWidth = 0.018;
-        ctx.strokeRect(p.x - 0.43, p.y - 0.43, 0.86, 0.86);
-        ctx.strokeStyle = TEAM[o] + "b0";
-        ctx.lineWidth = 0.04;
+      const hasProtection=Boolean(s.protectedBy[i]?.length);
+      const protection=transition && transition.fromProtected!==undefined ? Number(transition.fromProtected)+(Number(hasProtection)-Number(transition.fromProtected))*progress : Number(hasProtection);
+      if(protection>0) {
+        ctx.save();ctx.globalAlpha=protection;
+        const membrane=ctx.createRadialGradient(p.x,p.y,.04,p.x,p.y,.55);
+        membrane.addColorStop(0,TEAM[o]+'19');membrane.addColorStop(1,TEAM[o]+'00');ctx.fillStyle=membrane;ctx.fillRect(p.x-.42,p.y-.42,.84,.84);
+        ctx.strokeStyle=TEAM[o]+'80';ctx.lineWidth=Math.max(.025,1/tile);
         ctx.beginPath();
-        for (const dx of [-1, 1]) for (const dy of [-1, 1]) {
-          ctx.moveTo(p.x + dx * 0.24, p.y + dy * 0.43);
-          ctx.lineTo(p.x + dx * 0.43, p.y + dy * 0.43);
-          ctx.lineTo(p.x + dx * 0.43, p.y + dy * 0.24);
+        for(const dx of [-1,1])for(const dy of [-1,1]){
+          ctx.moveTo(p.x+dx*.21,p.y+dy*.40);ctx.lineTo(p.x+dx*.40,p.y+dy*.40);ctx.lineTo(p.x+dx*.40,p.y+dy*.21);
+        }ctx.stroke();
+        const scan=(v.time%4200)/600;
+        if(!v.reduced && scan<1 && hasProtection){
+          const band=(x+y)/(s.width+s.height);
+          const light=Math.max(0,1-Math.abs(scan-band)*9);
+          ctx.globalAlpha=light*.16*protection;ctx.fillStyle=TEAM[o];ctx.fillRect(p.x-.40,p.y-.40,.8,.8);
         }
-        ctx.stroke();
+        ctx.restore();
       }
+      if(!pending.has(i) && transition?.fromPending && progress<1)pending.set(i,transition.fromPending);
       if (pending.has(i)) {
         ctx.strokeStyle = TEAM[pending.get(i)];
         ctx.globalAlpha =
-          0.35 + (0.3 * (Math.sin(v.reduced ? 0 : v.time / 310) + 1)) / 2;
-        ctx.lineWidth = 0.07;
+          (0.5 + (0.16 * (Math.sin(v.reduced ? 0 : v.time / 330) + 1)) / 2) *
+          (transition?.fromPending && !s.claims.some(c=>c.cells.includes(i)) ? 1-progress : 1);
+        ctx.lineWidth = Math.max(.025,1/tile);
+        ctx.setLineDash([.25,.10]);ctx.lineDashOffset=v.reduced ? 0 : -v.time/2100;
         ctx.beginPath();
         for (const [dx, dy] of [
           [1, 0],
@@ -155,25 +160,10 @@ export function render(canvas, s, v) {
         }
         ctx.stroke();
         ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
       }
       ctx.restore();
     }
-  for (const c of s.claims) {
-    const id = c.cells.find((i) => pending.has(i));
-    if (id === undefined) continue;
-    const p = pt({
-      x: (id % s.width) + 0.5,
-      y: Math.floor(id / s.width) + 0.5,
-    });
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(-(v.rotation || 0));
-    ctx.fillStyle = TEAM[c.captor];
-    ctx.font = "600 .35px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText(v.contestedLabel || "Contested", 0, 0);
-    ctx.restore();
-  }
   for (const t of s.towers) {
     const building = v.effects.find(
       (e) =>
@@ -182,27 +172,32 @@ export function render(canvas, s, v) {
     if (building && v.time - building.born < 140 && !v.reduced) continue;
     const p = pt({ x: t.pos.x + 0.5, y: t.pos.y + 0.5 }),
       selected =
-        v.select &&
-        t.owner === (v.select === "redeploy" ? s.current : 3 - s.current);
+        v.select && (v.selectIds || []).includes(t.id);
     ctx.fillStyle = "#11212f";
     ctx.fillRect(p.x - 0.35, p.y - 0.35, 0.7, 0.7);
     ctx.strokeStyle = TEAM[t.owner];
     ctx.lineWidth = 0.065;
     ctx.setLineDash([]);
-    ctx.strokeRect(p.x - 0.33, p.y - 0.33, 0.66, 0.66);
+    const overload=t.state==='overloaded', contested=t.state==='contested';
+    ctx.globalAlpha=overload?.6:1;
+    if(overload) {
+      for(const [dx,dy] of [[-1,-1],[1,1]]){ctx.beginPath();ctx.moveTo(p.x+dx*.1,p.y+dy*.33);ctx.lineTo(p.x+dx*.33,p.y+dy*.33);ctx.lineTo(p.x+dx*.33,p.y+dy*.1);ctx.stroke();}
+    }else ctx.strokeRect(p.x-.33,p.y-.33,.66,.66);
+    ctx.globalAlpha=1;
     ctx.setLineDash([]);
-    ctx.fillStyle = TEAM[t.owner] + "77";
+    ctx.fillStyle = TEAM[t.owner] + (overload ? "40" : "77");
     ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
     const relay = relayStatus(s, t);
     if (relay === "available") {
       ctx.save();
-      ctx.globalAlpha = v.reduced ? 0.85 : 0.78 + Math.sin(v.time / 240) * 0.10;
+      ctx.globalAlpha = v.reduced ? 0.85 : 0.80 + Math.sin(v.time / 220) * 0.08;
       ctx.strokeStyle = TEAM[t.owner];
-      ctx.lineWidth = 0.045;
+      ctx.lineWidth = Math.max(.035,1.2/tile);
       ctx.shadowColor = TEAM[t.owner];
       ctx.shadowBlur = v.reduced ? 0 : 0.16 * tile;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 0.57, 0, Math.PI * 2);
+      const orbit=v.reduced ? -.8 : v.time/1900*Math.PI*2;
+      ctx.arc(p.x,p.y,.57,orbit,orbit+Math.PI*4/3);
       ctx.stroke();
       ctx.restore();
     }
@@ -221,7 +216,23 @@ export function render(canvas, s, v) {
       ctx.arc(p.x, p.y, 0.52, 0.25, Math.PI * 1.65);
       ctx.stroke();
     }
-    for (let n = 0; n < t.stage; n++) {
+    if(overload) {
+      ctx.strokeStyle=TEAM[t.owner]+'a0';ctx.lineWidth=Math.max(.025,1/tile);
+      for(let n=0;n<3;n++){
+        const angle=n*Math.PI*2/3+.2;ctx.beginPath();ctx.arc(p.x,p.y,.62,angle,angle+1.15);ctx.stroke();
+      }
+      const turnFraction=s.turnIndex===t.overloadStartedTurn?.95:.50;
+      ctx.strokeStyle=TEAM[t.owner]+'66';ctx.beginPath();ctx.arc(p.x,p.y,.74,-Math.PI/2,-Math.PI/2+turnFraction*Math.PI*2);ctx.stroke();
+      if(!v.reduced && (v.time+t.id*210)%2900<180){ctx.beginPath();ctx.moveTo(p.x+.46,p.y-.38);ctx.lineTo(p.x+.54,p.y-.49);ctx.lineTo(p.x+.59,p.y-.40);ctx.stroke();}
+    }
+    if(contested) {
+      const shift=v.reduced?0:Math.sin(v.time/330)*.25;
+      ctx.lineWidth=Math.max(.04,1.2/tile);
+      for(const [owner,start] of [[t.owner,.15+shift],[t.contestedBy||3-t.owner,Math.PI+.15-shift]]){
+        ctx.strokeStyle=TEAM[owner];ctx.beginPath();ctx.arc(p.x,p.y,.69,start,start+2.55);ctx.stroke();
+      }
+    }
+    for (let n = 0; n < (overload ? 0 : t.stage); n++) {
       const r = 0.43 + n * 0.11;
       ctx.lineWidth = 0.03;
       for (const [dx, dy] of [
@@ -238,7 +249,11 @@ export function render(canvas, s, v) {
       }
     }
     if (selected) {
-      circle(p, 0.76, TEAM[t.owner] + "bb", true);
+      const replacing=v.select==='redeploy'||v.select==='takeover-replace';
+      ctx.save();ctx.lineWidth=Math.max(.03,1/tile);
+      if(replacing){ctx.setLineDash([.14,.12]);ctx.lineDashOffset=v.reduced?0:-v.time/2000;ctx.strokeStyle=TEAM[t.owner]+'b0';ctx.strokeRect(p.x-.59,p.y-.59,1.18,1.18);}
+      else {const a=v.reduced?0:v.time/1900*Math.PI*2;ctx.strokeStyle=TEAM[t.owner];ctx.beginPath();ctx.arc(p.x,p.y,.78,a,a+Math.PI*4/3);ctx.stroke();}
+      ctx.restore();
       ctx.save();
       ctx.translate(p.x, p.y - 0.8);
       ctx.rotate(-(v.rotation || 0));
@@ -417,6 +432,6 @@ export function render(canvas, s, v) {
       }
     }
   }
-  drawEffects(ctx, v.effects, v.time, pt, TEAM, v.reduced, v.rotation || 0);
+  drawEffects(ctx, v.effects, v.time, pt, TEAM, v.reduced, v.rotation || 0, v.labels);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

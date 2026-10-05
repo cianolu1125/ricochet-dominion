@@ -29,6 +29,7 @@ export class RelayHUD {
     this.activeAt = -Infinity;
     this.activeFrom = 0;
     this.element.hidden = true;
+    this.feedbackKey="";this.flashUntil=0;this.element.classList.remove("overload","shielded");
   }
   activate(time) {
     this.activeFrom = this.focus(time);
@@ -37,7 +38,7 @@ export class RelayHUD {
   }
   sync(state, time, language, team, visible = true, dragging = false) {
     const owner = state.current,
-      n = state.towers.filter((t) => t.owner === owner).length;
+      n = state.towers.filter((t) => t.owner === owner && (!t.state || t.state === "normal")).length;
     const r = state.visitedRelayTowerIds.size,
       ongoing = state.phase.startsWith("MISSILE");
     if (owner !== this.owner) {
@@ -60,15 +61,20 @@ export class RelayHUD {
       this.level = 0;
       this.endAt = null;
     }
-    this.element.hidden = !visible || !n;
+    const outcome=state.relayFeedback;
+    const flashKey=outcome && outcome.turn===state.turnIndex ? `${outcome.towerId}:${outcome.turn}:${outcome.count}` : '';
+    if(flashKey && flashKey!==this.feedbackKey){this.feedbackKey=flashKey;this.flashUntil=time+600;}
+    for(const type of ['overload','shielded'])this.element.classList.toggle(type,Boolean(outcome?.type===type && time<this.flashUntil));
+    // Five nodes show earned missile history, independent of current relay eligibility.
+    this.element.hidden = !visible || (!n && !this.relays);
     this.element.style.setProperty("--relay-team", team[owner]);
     const key = [owner, n, this.relays, this.level, language].join(":");
     if (key !== this.key) {
       this.key = key;
       this.element.querySelector("#relay-track").innerHTML = Array.from(
-        { length: n },
+        { length: 5 },
         (_, i) =>
-          `<span class="relay-node ${[0, 2, 4].includes(i) ? "key-node" : ""} ${i < this.relays ? "lit" : ""}" aria-hidden="true"></span>`,
+          `<span class="relay-node ${[0, 2, 4].includes(i) ? "key-node" : ""} ${i < this.relays ? "lit" : ""} ${i === this.relays-1 ? "latest" : ""}" aria-hidden="true"></span>`,
       ).join("");
       this.element.querySelector("#relay-count").textContent =
         `${language === "en" ? "Relay" : "中继"} ${this.relays}/5`;

@@ -20,9 +20,9 @@ export function refreshClaims(state, neighbors) {
         }
     for (const j of cells) regionFor.set(j, cells);
   }
-  const live = new Set(state.towers.map((t) => t.id));
+  const live = new Map(state.towers.map((t) => [t.id, t.owner]));
   state.claims = state.claims.filter((claim) => {
-    claim.sources = [...new Set(claim.sources)].filter((id) => live.has(id));
+    claim.sources = [...new Set(claim.sources)].filter((id) => live.get(id) === claim.captor);
     if (!claim.sources.length) return false;
     const regions = new Set(
       claim.cells
