@@ -34,7 +34,7 @@ export function launch(s, direction, power) {
     kind,
     charge: s.charge,
     carried: null,
-    wasOwn: false,
+    wasEnemy: false,
     ignoreTower: t?.id || null,
     trail: [],
   };
@@ -184,8 +184,8 @@ export function carryAlong(s, m, a, b) {
   const owner = m.carried;
   for (const p of traverseCells(s, a, b)) {
     s.players[owner].pos = p;
-    const own = s.cells[E.index(s, p)] === owner;
-    if (!m.wasOwn && own) {
+    const hostile = E.isEnemyTerritory(s, owner, p);
+    if (!m.wasEnemy && hostile) {
       const previous = s.feedbackGroup;
       s.feedbackGroup = null;
       s.feedbackPosition = { x: p.x + 0.5, y: p.y + 0.5 };
@@ -194,7 +194,7 @@ export function carryAlong(s, m, a, b) {
       s.feedbackGroup = previous;
     }
     if (s.winner) return;
-    m.wasOwn = own;
+    m.wasEnemy = hostile;
   }
   s.players[owner].world = { ...b };
 }
@@ -208,7 +208,7 @@ function advance(s, m, dx, dy) {
     s.players[s.current].pos = E.grid(s, m);
   }
 }
-export function releaseBefore(s, m, t) {
+export function releaseBefore(s, m, t, checkDamage = true) {
   const speed = Math.hypot(m.vx, m.vy) || 1;
   const distance = Math.hypot(s.width, s.height) + 2;
   const end = {
@@ -222,8 +222,8 @@ export function releaseBefore(s, m, t) {
   const p =
     cells.find((p) => !E.same(p, t.pos) && E.legalLanding(s, p, owner)) ||
     E.nearestLanding(s, E.grid(s, m), owner);
-  const own = s.cells[E.index(s, p)] === owner;
-  if (!m.wasOwn && own) {
+  const hostile = E.isEnemyTerritory(s, owner, p);
+  if (checkDamage && !m.wasEnemy && hostile) {
     s.feedbackPosition = { x: p.x + 0.5, y: p.y + 0.5 };
     E.damage(s, owner);
     s.feedbackPosition = null;
@@ -233,29 +233,22 @@ export function releaseBefore(s, m, t) {
   delete s.players[owner].world;
   m.carried = null;
 }
-function finish(s, m, blast = true, center = null) {
+function finish(s, m, blast = true, center = null, releasedOwner = null) {
   if (s.winner) return;
-  const p = center || E.grid(s, m);
+  const p = center || E.grid(s, m), passenger = m.carried || releasedOwner;
   if (m.kind === "move") {
     s.players[s.current].pos = E.nearestLanding(s, p, s.current);
     delete s.players[s.current].world;
   }
   if (m.carried) {
-    const owner = m.carried,
-      landing = E.nearestLanding(s, p, owner),
-      own = s.cells[E.index(s, landing)] === owner;
-    if (!m.wasOwn && own) {
-      s.feedbackPosition = { x: landing.x + 0.5, y: landing.y + 0.5 };
-      E.damage(s, owner);
-      s.feedbackPosition = null;
-    }
-    if (s.winner) return;
-    s.players[owner].pos = landing;
-    delete s.players[owner].world;
-    if (s.winner) return;
+    s.players[passenger].pos = E.nearestLanding(s, p, passenger);
+    delete s.players[passenger].world;
     m.carried = null;
   }
+  // Commit the entire explosion before the one final passenger HP check.
   if (m.kind === "missile" && blast) E.paintMissile(s, s.current, p, m.charge);
+  if (passenger) E.hitRole(s, passenger);
+  if (s.winner) return;
   s.activeBody = null;
   s.relay = null;
   s.phase = "IDLE";
@@ -334,10 +327,10 @@ function tick(s, dt, events) {
     if (hit.type === "role" && m.kind === "missile") {
       const target = E.enemy(s.current),
         foe = { ...s.players[target].pos },
-        own = E.hitRole(s, target);
+        hostile = E.hitRole(s, target);
       if (s.winner) return;
       m.carried = target;
-      m.wasOwn = own;
+      m.wasEnemy = hostile;
       emit({ type: "carry", x: m.x, y: m.y });
       if (hit.priorityTower) {
         hit.type = "tower";
@@ -382,12 +375,12 @@ function tick(s, dt, events) {
       }
       if (t.owner !== s.current && m.kind === "missile" && m.charge === 3) {
         const p = { ...t.pos };
-        // Release using pre-paint territory while the target still exists.
-        if (m.carried) releaseBefore(s, m, t);
+        // Pick a legal landing while the tower exists, but defer HP until paint.
+        const passenger = m.carried;
+        if (passenger) releaseBefore(s, m, t, false);
         if (s.winner) return;
         E.removeTower(s, t);
-        finish(s, m, true, p);
-        if (s.winner) return;
+        finish(s, m, true, p, passenger);
         emit({
           type: "siege",
           targetOwner: t.owner,
@@ -417,7 +410,6 @@ function tick(s, dt, events) {
     const p = E.grid(s, m);
     s.feedbackGroup = feedbackId();
     finish(s, m);
-    if (s.winner) return;
     emit({
       type: m.kind === "move" ? "land" : "blast",
       x: p.x + 0.5,

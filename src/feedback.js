@@ -30,7 +30,9 @@ export function chargeSpec(level, maxed = false) {
   ][Math.max(0, Math.min(2, level - 1))];
 }
 export function effectDuration(e) {
-  return e.type === "damage"
+  return e.type === "heal"
+    ? 900
+    : e.type === "damage"
     ? 560
     : e.type === "charge"
       ? chargeSpec(e.charge, e.maxed).duration
@@ -102,6 +104,8 @@ export class FeedbackDirector {
         ].includes(e.type)
       )
         this.effects.push(f);
+      // Healing has visual feedback only; deployment keeps its existing sound.
+      if (e.type === "heal") continue;
       const g = groups.get(e.groupId) || [];
       g.push(f);
       groups.set(e.groupId, g);

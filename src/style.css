@@ -660,7 +660,7 @@ h2 {
   right: 18px;
   height: 1px;
   background: var(--relay-team);
-  opacity: calc(0.18 + var(--relay-focus) * 0.52);
+  opacity: calc(0.18 + var(--relay-focus) * 0.82);
   box-shadow: 0 0 6px var(--relay-team);
 }
 .relay-node {
@@ -670,7 +670,7 @@ h2 {
   border-radius: 50%;
   background: #101b26;
   position: relative;
-  opacity: calc(0.2 + var(--relay-focus) * 0.7);
+  opacity: calc(0.2 + var(--relay-focus) * 0.8);
 }
 .relay-node.key-node {
   width: 8px;
@@ -686,7 +686,7 @@ h2 {
 #relay-count {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  opacity: calc(0.2 + var(--relay-focus) * 0.65);
+  opacity: calc(0.2 + var(--relay-focus) * 0.8);
 }
 #relay-skill {
   font-size: 14px;

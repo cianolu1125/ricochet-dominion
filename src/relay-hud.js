@@ -1,4 +1,5 @@
 import { chargeFromRelays } from "./charge.js";
+const ENTER_MS = 200, HOLD_MS = 2500, FADE_MS = 800;
 const roman = ["0", "Ⅰ", "Ⅱ", "Ⅲ"];
 const skills = {
   "zh-CN": ["", "扩张", "切割", "清洗"],
@@ -7,6 +8,7 @@ const skills = {
 export class RelayHUD {
   constructor(element) {
     this.element = element;
+    this.turnKey = "";
     this.key = "";
     this.owner = 0;
     this.relays = 0;
@@ -17,6 +19,7 @@ export class RelayHUD {
     this.activeFrom = 0;
   }
   reset() {
+    this.turnKey = "";
     this.key = "";
     this.owner = 0;
     this.relays = 0;
@@ -30,7 +33,7 @@ export class RelayHUD {
   activate(time) {
     this.activeFrom = this.focus(time);
     this.activeAt = time;
-    this.until = time + 1000;
+    this.until = time + ENTER_MS + HOLD_MS;
   }
   sync(state, time, language, team, visible = true, dragging = false) {
     const owner = state.current,
@@ -41,13 +44,18 @@ export class RelayHUD {
       this.reset();
       this.owner = owner;
     }
+    const turnKey = `${owner}:${state.turnIndex}`;
+    if (visible && state.phase !== "HANDOFF" && this.turnKey !== turnKey) {
+      this.turnKey = turnKey;
+      this.activate(time);
+    }
     if (ongoing) {
       if (r !== this.relays && !dragging) this.activate(time);
       this.relays = r;
       this.level = chargeFromRelays(r);
       this.endAt = null;
     } else if (this.relays && this.endAt === null) this.endAt = time;
-    if (this.endAt !== null && time - this.endAt >= 1200) {
+    if (this.endAt !== null && time >= Math.max(this.endAt + 1200, this.until + FADE_MS)) {
       this.relays = 0;
       this.level = 0;
       this.endAt = null;
@@ -78,19 +86,8 @@ export class RelayHUD {
     this.element.style.setProperty("--relay-focus", Math.max(0, strength));
   }
   focus(time) {
-    let strength =
-      time < this.until
-        ? this.activeFrom +
-          (1 - this.activeFrom) *
-            Math.min(1, Math.max(0, (time - this.activeAt) / 100))
-        : Math.max(0, 1 - (time - this.until) / 1000);
-    if (this.endAt !== null)
-      strength = Math.min(
-        strength,
-        time - this.endAt < 600
-          ? 1
-          : Math.max(0, 1 - (time - this.endAt - 600) / 600),
-      );
-    return strength;
+    return time < this.until
+      ? this.activeFrom + (1 - this.activeFrom) * Math.min(1, Math.max(0, (time - this.activeAt) / ENTER_MS))
+      : Math.max(0, 1 - (time - this.until) / FADE_MS);
   }
 }
