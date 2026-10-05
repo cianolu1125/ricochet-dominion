@@ -7,7 +7,7 @@ function pass(s) {
   if (!s.winner) assert.ok(E.beginTurn(s));
 }
 test("80 percent counted including temporary only at complete round end", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(1);
   E.recompute(s);
   assert.equal(s.winner, null);

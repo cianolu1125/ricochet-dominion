@@ -7,7 +7,7 @@ import { drainFacts } from '../src/feedback-events.js';
 import { FeedbackDirector } from '../src/feedback.js';
 import { snapshot, visualChanges } from '../src/visual-changes.js';
 const fresh = (owner = 1) => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.current = owner; s.cells.fill(0); s.towers = []; s.claims = [];
   s.players[owner].pos = {x: 2, y: 10};
   s.players[E.enemy(owner)].pos = {x: 12, y: 10};

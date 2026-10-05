@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import * as E from "../src/engine.js";
 import * as P from "../src/physics.js";
 const fresh = () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   s.claims = [];
@@ -36,8 +36,8 @@ const pass = (s) => {
   E.endTurn(s);
   if (!s.winner) E.beginTurn(s);
 };
-test("custom 1 and 100 rounds finish ties directly at limit", () => {
-  for (const n of [1, 100]) {
+test("fixed 10, 14 and 18 rounds finish ties directly at limit", () => {
+  for (const n of [10, 14, 18]) {
     const s = E.createGame(n);
     s.round = n;
     pass(s);

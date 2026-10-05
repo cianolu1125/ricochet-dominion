@@ -4,7 +4,7 @@ import * as E from "../src/engine.js";
 import { snapshot, visualChanges } from "../src/visual-changes.js";
 import { tilePresentation, FeedbackDirector } from "../src/feedback.js";
 test("large conversion lands within 650ms and only rule-approved cells change", () => {
-  const s = E.createGame(),
+  const s = E.createGame(10),
     source = s.towers.find((t) => t.owner === 1),
     cells = Array.from({ length: 200 }, (_, i) => i + 100);
   for (const i of cells) {
@@ -27,7 +27,7 @@ test("large conversion lands within 650ms and only rule-approved cells change", 
   }
 });
 test("siege plays one main sound and only one set of tower fragments", () => {
-  const s = E.createGame(),
+  const s = E.createGame(10),
     tower = s.towers.find((t) => t.owner === 2),
     b = snapshot(s);
   E.siege(s, tower, tower.pos);
@@ -58,7 +58,7 @@ test("siege plays one main sound and only one set of tower fragments", () => {
   assert.equal(d.impulses, 1);
 });
 test("redeployment retracts old tower, plays build visually, one composite sound", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   for (const x of [2, 4, 6, 8])
     s.towers.push({
       id: ++s.nextId,
@@ -83,7 +83,7 @@ test("redeployment retracts old tower, plays build visually, one composite sound
   assert.equal(d.impulses, 0);
 });
 test("cross tile travel is bounded across full map and conversion facts are not duplicated", () => {
-  const s = E.createGame(),
+  const s = E.createGame(10),
     b = snapshot(s);
   s.cells.fill(1);
   const tr = new Map(),

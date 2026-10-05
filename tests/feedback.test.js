@@ -60,7 +60,7 @@ test("all charge levels are distinct, maxed relay is short, wave switches at lan
   assert.equal(tilePresentation(tr, 150, true).lift, 0);
 });
 test("carry traversal emits distinct facts for each actual HP decrement", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   for (const x of [3, 5, 7]) s.cells[E.index(s, { x, y: 8 })] = 1;
   stabilize(s,1,[3,5,7].map(x=>({x,y:8})));
@@ -73,7 +73,7 @@ test("carry traversal emits distinct facts for each actual HP decrement", () => 
 });
 
 test("actual role hit and carry share one causal sound group", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   const enemy = s.towers.find((t) => t.owner === 2);
   s.players[2].pos = { ...enemy.pos };
   s.players[2].hp = 10;
@@ -108,7 +108,7 @@ test("a weak independent hit reinjects feedback without erasing a stronger activ
   assert.equal(d.impulses, 2);
 });
 test("release damage is recorded at actual legal landing, not prior carried world", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.cells[E.index(s, { x: 5, y: 6 })] = 1;
   stabilize(s,1,[{x:5,y:6}]);

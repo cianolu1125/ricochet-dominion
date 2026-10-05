@@ -17,7 +17,7 @@ const t = (s, owner, x, y, stage = 2) => {
   return t;
 };
 test("earlier hostile protection wins later growth and overlap survives single removal", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   const a = t(s, 1, 5, 5),
@@ -31,7 +31,7 @@ test("earlier hostile protection wins later growth and overlap survives single r
   assert.equal(E.protectedOwner(s, E.index(s, { x: 5, y: 5 })), 0);
 });
 test("siege blast cannot steal overlapping protection of another surviving tower", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   const a = t(s, 2, 5, 5),
@@ -42,7 +42,7 @@ test("siege blast cannot steal overlapping protection of another surviving tower
   assert.equal(s.towers.includes(b), true);
 });
 test("invalid commands reject without spending resources", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   assert.equal(E.buildTower(s), false);
   assert.equal(E.dismantle(s, 999), false);
   assert.equal(s.actionAvailable, true);
@@ -52,7 +52,7 @@ test("invalid commands reject without spending resources", () => {
   assert.equal(E.skip(s, "action"), false);
 });
 test("claims never annex restored stable portion after splitting original snapshot", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   s.claims = [];

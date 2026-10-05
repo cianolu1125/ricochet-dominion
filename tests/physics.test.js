@@ -13,7 +13,7 @@ test("continuous box detects corners and circles return reflection normals", () 
   assert.equal(P.segmentCircle(0, 0, 10, 0, 5, 5, 1), null);
 });
 test("exact traversal records tiny diagonal crossings and reverse traversal", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   assert.deepEqual(
     P.traverseCells(s, { x: 0.1, y: 0.99 }, { x: 2.9, y: 1.01 }),
     [
@@ -34,7 +34,7 @@ test("exact traversal records tiny diagonal crossings and reverse traversal", ()
   );
 });
 test("aim cancel returns unspent token while relay stop finishes committed projectile", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   E.chooseAim(s, "missile");
   P.cancelAim(s);
   assert.equal(s.actionAvailable, true);
@@ -47,7 +47,7 @@ test("aim cancel returns unspent token while relay stop finishes committed proje
 test("wall reflection remains in bounds and frame sizes produce same result", () => {
   const finals = [];
   for (const dt of [1 / 120, 1 / 60, 1 / 30]) {
-    const s = E.createGame();
+    const s = E.createGame(10);
     s.towers = [];
     s.players[1].pos = { x: 1, y: 15 };
     E.chooseAim(s, "move");
@@ -62,7 +62,7 @@ test("wall reflection remains in bounds and frame sizes produce same result", ()
   assert.deepEqual(finals[0], finals[2]);
 });
 test("four relays reach Charge II and departure does not consume origin tower", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.towers = [];
   s.players[1].pos = { x: 2, y: 15 };
   s.players[2].pos = { x: 17, y: 31 };

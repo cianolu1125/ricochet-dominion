@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as E from "../src/engine.js";
 const fresh = () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   s.claims = [];
@@ -24,7 +24,7 @@ const tower = (s, owner, x, y, stage = 0, slot = "A") => {
   return t;
 };
 test("v0.2 starts with 10 HP, one stage-2 tower per side and free tokens", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   assert.equal(s.players[1].hp, 10);
   assert.equal(s.towers.length, 2);
   assert.equal(s.towers[0].stage, 2);
@@ -96,7 +96,7 @@ test("T07 destroyed claim source cancels annexation", () => {
   assert.equal(s.claims.length, 0);
 });
 test("T09/10 towers include birth and grow each owner turn", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.players[1].pos = { x: 8, y: 15 };
   E.buildTower(s);
   const t = s.towers.at(-1);
@@ -133,7 +133,7 @@ test("T12 redeploy leaves old colors and removes exclusive protection", () => {
 });
 test("T28/29 free-order tokens and duplicate action rejection", () => {
   for (const first of ["move", "action"]) {
-    const s = E.createGame();
+    const s = E.createGame(10);
     E.skip(s, first);
     assert.equal(first === "move" ? s.actionAvailable : s.moveAvailable, true);
     E.skip(s, first === "move" ? "action" : "move");
@@ -152,7 +152,7 @@ test("T31/32 dismantle from actual control range consumes action only", () => {
   assert.equal(s.actionAvailable, false);
 });
 test("HP death preserves position and aborts painting", () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.players[2].hp = 1;
   const p = { ...s.players[2].pos };
   const before = [...s.cells];

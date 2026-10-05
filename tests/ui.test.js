@@ -69,7 +69,7 @@ async function setup(
   w.document.modelContext = { registerTool: (t) => (tool = t) };
   const canvas = w.document.getElementById("board");
   canvas.getContext = () =>
-    new Proxy({}, { get: () => () => {}, set: () => true });
+    new Proxy({}, { get: (o,key) => key === "createLinearGradient" || key === "createRadialGradient" ? () => ({addColorStop(){}}) : () => {}, set: () => true });
   canvas.parentElement.getBoundingClientRect = () => ({
     width: w.innerWidth,
     height: w.innerHeight,
@@ -120,7 +120,7 @@ for (const [width, height, touch] of [
     const a = await setup(width, height, touch);
     try {
       a.click('[data-panel="start"]');
-      assert.equal(a.read().players[1].hp, 10);
+      assert.equal(a.read().players[1].hp, 14);
       assert.ok(a.w.document.querySelector('[data-action="move"]'));
       assert.ok(a.w.document.querySelector('[data-action="action"]'));
       a.click('[data-action="action"]');
@@ -584,27 +584,17 @@ for (const result of [
       await a.close();
     }
   });
-test("custom slider and numeric input start a 100-round match and clamp entered bounds", async () => {
-  const a = await setup();
-  try {
-    a.click('[data-panel="custom"]');
-    const slider = a.w.document.querySelector("#custom-rounds");
-    slider.value = "100";
-    slider.dispatchEvent(new a.w.Event("input", { bubbles: true }));
-    a.click('[data-panel="start"]');
-    assert.equal(a.read().maxRounds, 100);
-    a.click("#menu");
-    a.click('[data-panel="main-menu"]');
-    a.click('[data-panel="home"]');
-    a.click('[data-panel="custom"]');
-    const number = a.w.document.querySelector("#custom-number");
-    number.value = "0";
-    number.dispatchEvent(new a.w.Event("change", { bubbles: true }));
-    a.click('[data-panel="start"]');
-    assert.equal(a.read().maxRounds, 1);
-  } finally {
-    await a.close();
-  }
+for(const rounds of [10,14,18]) test(`fixed mode ${rounds} exposes correct HP in menu and HUD`, async()=>{
+ const a=await setup();try{
+  assert.equal(a.w.document.querySelector('[data-panel="custom"]'),null);
+  a.click(`[data-panel="round-${rounds}"]`);
+  const card=a.w.document.querySelector(`[data-panel="round-${rounds}"]`);
+  assert.ok(card.textContent.includes(`${rounds} HP`));
+  a.click('[data-panel="start"]');
+  assert.equal(a.read().maxRounds,rounds);assert.equal(a.read().players[1].maxHp,rounds);
+  assert.ok(a.w.document.querySelector('#current').textContent.includes(`${rounds}/${rounds} HP`));
+  assert.equal(a.w.document.querySelectorAll('#current .hp-bar i').length,rounds);
+ }finally{await a.close();}
 });
 test("relay HUD has actual capacity nodes and localized frameless skill, then clears on new turn", async () => {
   const a = await setup();
@@ -629,7 +619,7 @@ test("relay HUD has actual capacity nodes and localized frameless skill, then cl
     );
     s.relay = { pos: { x: 4, y: 28 } };
     a.w.useFixtureForTest(s);
-    assert.equal(a.w.document.querySelectorAll(".relay-node").length, 3);
+    assert.equal(a.w.document.querySelectorAll(".relay-node").length, 5);
     assert.match(
       a.w.document.querySelector("#relay-skill").textContent,
       /Charge Ⅱ · 切割/,
@@ -649,7 +639,7 @@ test("relay HUD has actual capacity nodes and localized frameless skill, then cl
     a.tick(400);
     a.tick(200);
     a.tick(650);
-    assert.equal(a.w.document.querySelectorAll(".relay-node").length, 1);
+    assert.equal(a.w.document.querySelectorAll(".relay-node").length, 5);
     assert.equal(a.w.document.querySelector("#relay-skill").textContent, "");
   } finally {
     await a.close();
@@ -734,24 +724,6 @@ test("thaw frames discard frozen elapsed time even when RAF jumps over the stop"
     }
   }
 });
-test("invalid custom input retains and explains the latest valid round count", async () => {
-  const a = await setup();
-  try {
-    a.click('[data-panel="custom"]');
-    const n = a.w.document.querySelector("#custom-number");
-    n.value = "42";
-    n.dispatchEvent(new a.w.Event("change", { bubbles: true }));
-    n.value = "";
-    n.dispatchEvent(new a.w.Event("change", { bubbles: true }));
-    assert.equal(n.value, "42");
-    assert.ok(a.w.document.querySelector("#custom-error").textContent);
-    a.click('[data-panel="start"]');
-    assert.equal(a.read().maxRounds, 42);
-  } finally {
-    await a.close();
-  }
-});
-
 for (const kind of ['move','missile']) test(`v052 ${kind}: button entry exposes relay before any drag`, async()=>{
  const a=await setup();try{
   a.click('[data-panel="start"]');
@@ -762,3 +734,13 @@ for (const kind of ['move','missile']) test(`v052 ${kind}: button entry exposes 
   assert.equal(E.relayStatus(s,s.towers[0]),'available');
  }finally{await a.close();}
 });
+function takeoverFixture(a,count=0) {
+ const s=E.createGame();s.cells.fill(0);s.towers=[];s.players[1].pos={x:7,y:10};s.players[2].pos={x:12,y:18};
+ const target={id:++s.nextId,owner:2,pos:{x:8,y:10},stage:1,state:'overloaded',overloadExpiresTurn:1,slot:'A',protected:[]};s.towers.push(target);E.expand(s,target);
+ for(let i=0;i<count;i++){const t={id:++s.nextId,owner:1,pos:{x:2+i*2,y:4},stage:0,state:'normal',slot:'ABCDE'[i],protected:[]};s.towers.push(t);E.expand(s,t);}
+ E.recompute(s);a.w.useFixtureForTest(s);return {s,target};
+}
+function tapTower(a,s,t) {const v=battlefieldViewport(s,a.canvas.clientWidth,a.canvas.clientHeight);a.canvas.dispatchEvent(new a.w.PointerEvent('pointerdown',{button:0,pointerId:77,clientX:v.x+(t.pos.x+.5)*v.tile,clientY:v.y+(t.pos.y+.5)*v.tile,bubbles:true}));}
+test('contextual takeover submits without extra end-turn click',async()=>{const a=await setup();try{a.click('[data-panel="start"]');const {s,target}=takeoverFixture(a);a.click('[data-action="action"]');assert.equal(a.w.document.querySelector('[data-action="tower"]').textContent,'接管');a.click('[data-action="tower"]');assert.equal(target.state,'contested');assert.equal(s.phase,'HANDOFF');a.tick(400);a.tick(200);a.tick(1500);assert.equal(s.phase,'IDLE');assert.equal(s.current,2);}finally{await a.close();}});
+test('five-tower takeover cancels safely then replaces selected normal tower',async()=>{const a=await setup();try{a.click('[data-panel="start"]');const {s,target}=takeoverFixture(a,5);a.click('[data-action="action"]');a.click('[data-action="tower"]');assert.equal(target.state,'overloaded');assert.ok(a.w.document.querySelector('#stack').textContent.includes('选择撤除据点'));a.click('[data-action="action"]');assert.equal(s.towers.length,6);a.click('[data-action="tower"]');const old=s.towers.find(t=>t.owner===1);tapTower(a,s,old);assert.equal(target.state,'contested');assert.equal(s.towers.length,5);assert.equal(s.phase,'HANDOFF');}finally{await a.close();}});
+test('contextual reclaim restores and triggers handoff',async()=>{const a=await setup();try{a.click('[data-panel="start"]');const {s,target}=takeoverFixture(a);target.owner=1;target.state='contested';target.contestedBy=2;target.contestedResolveTurn=2;E.recompute(s);a.w.useFixtureForTest(s);a.click('[data-action="action"]');assert.equal(a.w.document.querySelector('[data-action="tower"]').textContent,'收复');a.click('[data-action="tower"]');assert.equal(target.state,'normal');assert.equal(s.phase,'HANDOFF');}finally{await a.close();}});

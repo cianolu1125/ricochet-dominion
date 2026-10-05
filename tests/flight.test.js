@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import * as E from "../src/engine.js";
 import * as P from "../src/physics.js";
 const setup = () => {
-  const s = E.createGame();
+  const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   s.claims = [];
