@@ -1,3 +1,4 @@
+import {regionContours} from "./region-outline.js";
 import { chargeSpec, effectDuration } from "./feedback.js";
 // One Canvas pass, at most 180 transient particle primitives; no per-particle timers.
 export function drawEffects(
@@ -53,6 +54,12 @@ export function drawEffects(
       } else if(e.type==='shielded') {
         if(e.source&&!reduced){const a=pt(e.source);ctx.globalAlpha=Math.sin(q*Math.PI)*.5;ctx.strokeStyle=color;ctx.lineWidth=.025;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke();}
         ring(p.x,p.y,.32+q*.32,color,Math.sin(q*Math.PI)*.6,.025);
+      } else if(e.type==='takeoverStart') {
+        const old=team[e.targetOwner]||color;
+        for(const [c,start,dir] of [[old,.15,1],[color,Math.PI+.15,-1]]) {
+          ctx.strokeStyle=c;ctx.lineWidth=.035;ctx.globalAlpha=Math.sin(q*Math.PI)*.7;
+          ctx.beginPath();ctx.arc(p.x,p.y,.69+q*.08,start+dir*q*.65,start+dir*q*.65+2.15);ctx.stroke();
+        }
       } else if(restarting) {
         point(p.x,p.y,.13,color,1-q);
         ring(p.x,p.y,.3+q*((e.stage||1)+.35),color,(1-q)*.48,.028);
@@ -293,7 +300,16 @@ export function drawEffects(
       ctx.arc(p.x, p.y, 0.42 + q * 0.2, -0.8, 1.4);
       ctx.stroke();
     } else if (e.type === "grow") {
-      ring(p.x, p.y, 0.3 + q * 0.65, color, (1 - q) * 0.7, 0.04);
+      if(e.cells?.length && age<120) {
+        ctx.strokeStyle=color;ctx.lineWidth=.025;ctx.globalAlpha=(1-age/120)*.7;
+        ctx.beginPath();
+        for(const contour of regionContours({width:e.width,height:Math.ceil((Math.max(...e.cells)+1)/e.width)},e.cells)) {
+          const a=pt(contour[0]);ctx.moveTo(a.x,a.y);
+          for(const point of contour.slice(1)){const b=pt(point);ctx.lineTo(b.x,b.y);}
+        }
+        ctx.stroke();
+      }
+      ring(p.x, p.y, 0.3 + q * 0.65, color, (1 - q) * 0.5, 0.03);
     } else if (e.type === "fire" || e.type === "launch" || e.type === "land") {
       const layers = e.type === "fire" && e.charge >= 2 ? 2 : 1;
       for (let n = 0; n < layers; n++)

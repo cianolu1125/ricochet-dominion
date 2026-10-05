@@ -1,5 +1,5 @@
-import { activeTower, recoverExpiredOverloads, resolveDueTakeovers } from "./outposts.js";
-export { activeTower, applyRelayOverload, hasExternalFriendlyProtection, getTakeoverCandidates, getReclaimCandidates, getRedeployableOwnedTowers, outpostAction, startTakeover, reclaimTower } from "./outposts.js";
+import { activeTower, recoverExpiredOverloads, resolveDueTakeovers, reconcileTowerInfluence } from "./outposts.js";
+export { reconcileTowerInfluence, activeTower, applyRelayOverload, hasExternalFriendlyProtection, getTakeoverCandidates, getReclaimCandidates, getRedeployableOwnedTowers, outpostAction, startTakeover, reclaimTower } from "./outposts.js";
 import { refreshClaims } from "./claims.js";
 import { paintTargets, crossTrace } from "./charge.js";
 import { fact, feedbackId } from "./feedback-events.js";
@@ -109,16 +109,14 @@ export function recompute(s) {
   s.protectedBy = Array.from({ length: s.cells.length }, () => []);
   for (const t of s.towers) {
     t.protected = [];
+    towerInfluence(s,t);
     if (!activeTower(t)) continue;
-    for (let y = t.pos.y - t.stage; y <= t.pos.y + t.stage; y++)
-      for (let x = t.pos.x - t.stage; x <= t.pos.x + t.stage; x++)
-        if (inside(s, { x, y })) {
-          const i = index(s, { x, y });
-          if (s.cells[i] === t.owner) {
-            t.protected.push(i);
-            s.protectedBy[i].push(t.id);
-          }
-        }
+    for (const i of towerInfluence(s,t)) {
+      if (s.cells[i] === t.owner) {
+        t.protected.push(i);
+        s.protectedBy[i].push(t.id);
+      }
+    }
   }
   s.stability = s.cells.map((c) => (c ? "temporary" : null));
   for (const owner of [1, 2]) {
@@ -141,6 +139,7 @@ export function recompute(s) {
         }
     }
   }
+  reconcileTowerInfluence(s);
   refreshClaims(s, neighbors);
 }
 export function neighbors(s, i) {
@@ -165,29 +164,51 @@ export function component(s, i) {
       }
   return q;
 }
-export function expand(s, t) {
-  for (let y = t.pos.y - t.stage; y <= t.pos.y + t.stage; y++)
-    for (let x = t.pos.x - t.stage; x <= t.pos.x + t.stage; x++) {
-      const p = { x, y };
-      if (!inside(s, p)) continue;
-      const i = index(s, p),
-        o = protectedOwner(s, i);
-      if (!o || o === t.owner) {
-        s.cells[i] = t.owner;
-        if (!t.protected.includes(i)) t.protected.push(i);
-      }
-    }
+// Structure radius and current influence are deliberately separate.
+export function potentialRange(s,t) {
+  const cells=[];
+  for(let y=t.pos.y-t.stage;y<=t.pos.y+t.stage;y++)
+    for(let x=t.pos.x-t.stage;x<=t.pos.x+t.stage;x++)
+      if(inside(s,{x,y}))cells.push(index(s,{x,y}));
+  return cells;
 }
-export function removeTower(s, t) {
-  s.towers = s.towers.filter((a) => a.id !== t.id);
+export function towerInfluence(s,t) {
+  const allowed=new Set(potentialRange(s,t));
+  // Compatibility for existing fixtures/legacy entities; initialize once only.
+  if(!Array.isArray(t.influence))t.influence=[...allowed].filter(i=>s.cells[i]===t.owner);
+  else t.influence=[...new Set(t.influence)].filter(i=>allowed.has(i));
+  return t.influence;
+}
+export function expand(s,t) {
+  const influence=new Set(towerInfluence(s,t));
+  for(const i of potentialRange(s,t)) {
+    const protector=protectedOwner(s,i);
+    if(protector && protector!==t.owner)continue;
+    s.cells[i]=t.owner;influence.add(i);
+    if(!t.protected.includes(i))t.protected.push(i);
+  }
+  t.influence=[...influence];
+}
+export function removeTower(s,t) {
+  s.towers=s.towers.filter(a=>a.id!==t.id);
   recompute(s);
 }
-export function growTowers(s, owner) {
-  for (const t of s.towers
-    .filter((t) => t.owner === owner && activeTower(t) && t.stage < 2 && t.activationTurn !== s.turnIndex)
-    .sort((a, b) => a.id - b.id)) {
-    t.stage++;
-    expand(s, t);
+export function growTowers(s,owner) {
+  for(const t of s.towers.filter(t=>t.owner===owner && activeTower(t) &&
+    t.activationTurn!==s.turnIndex && t.skipGrowthTurn!==s.turnIndex).sort((a,b)=>a.id-b.id)) {
+    const before=new Set(towerInfluence(s,t));
+    if(t.stage<2) {
+      t.stage++;expand(s,t);
+    } else {
+      // Freeze the frontier before painting, so this phase advances only one layer.
+      const frontier=potentialRange(s,t).filter(i=>!before.has(i) &&
+        protectedOwner(s,i)!==enemy(owner) &&
+        (before.size ? neighbors(s,i).some(j=>before.has(j)) : i===index(s,t.pos)));
+      for(const i of frontier){s.cells[i]=owner;before.add(i);}
+      t.influence=[...before];
+    }
+    // Keep protection and residual masks current between overlapping tower growths.
+    recompute(s);
   }
   recompute(s);
 }

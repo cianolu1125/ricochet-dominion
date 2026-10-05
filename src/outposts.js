@@ -12,7 +12,7 @@ export function getRedeployableOwnedTowers(s,owner=s.current) {
 export function hasExternalFriendlyProtection(s,tower) {
   const i=E.index(s,tower.pos);
   return s.cells[i]===tower.owner && s.towers.some(t=>
-    t.id!==tower.id && t.owner===tower.owner && activeTower(t) && inRange(t,tower.pos));
+    t.id!==tower.id && t.owner===tower.owner && activeTower(t) && E.towerInfluence(s,t).includes(i));
 }
 export function applyRelayOverload(s,tower) {
   if(s.winner || !s.towers.includes(tower) || tower.owner!==s.current || !activeTower(tower)) return false;
@@ -31,11 +31,30 @@ export function applyRelayOverload(s,tower) {
   fact(s,{type:'overload',...meta});
   return true;
 }
+// Called after stability/protection are derived. Loss is persistent, even if
+// an enemy stable tile later disconnects; only future growth may add it again.
+export function reconcileTowerInfluence(s) {
+  for(const t of s.towers) {
+    const cells=E.towerInfluence(s,t);
+    if(t.state==='overloaded')t.influence=cells.filter(i=>
+      !(s.cells[i]===E.enemy(t.owner) &&
+        (s.stability[i]==='stable' || E.protectedOwner(s,i)===E.enemy(t.owner))));
+  }
+}
 export function recoverExpiredOverloads(s,owner) {
-  for(const t of owned(s,owner)) if(t.state==='overloaded' && t.overloadExpiresTurn<=s.turnIndex) {
-    t.state='normal';
+  E.recompute(s);
+  const due=owned(s,owner).filter(t=>t.state==='overloaded' && t.overloadExpiresTurn<=s.turnIndex);
+  // Decide against one pre-recovery map before any tower reactivates a stable root.
+  const recoveries=due.map(t=>({t,cells:E.towerInfluence(s,t).filter(i=>
+    E.protectedOwner(s,i)!==E.enemy(owner) &&
+    !(s.cells[i]===E.enemy(owner) && s.stability[i]==='stable'))}));
+  for(const {t,cells} of recoveries) {
+    t.influence=cells;
+    const restored=cells.filter(i=>s.cells[i]!==owner);
+    for(const i of cells)s.cells[i]=owner;
+    t.state='normal';t.skipGrowthTurn=s.turnIndex;
     delete t.overloadExpiresTurn;
-    fact(s,{type:'restore',owner,towerId:t.id,stage:t.stage,x:t.pos.x+.5,y:t.pos.y+.5});
+    fact(s,{type:'restore',owner,towerId:t.id,stage:t.stage,cells:restored,width:s.width,x:t.pos.x+.5,y:t.pos.y+.5});
   }
   E.recompute(s);
 }
@@ -91,6 +110,9 @@ export function reclaimTower(s,id) {
   const t=getReclaimCandidates(s).find(t=>t.id===id);
   if(!t)return false;
   t.state='normal';
+  // Reclaim never repaints. Hostile colors are gaps in active control so a
+  // mature tower can recover them through its later normal frontier growth.
+  t.influence=E.towerInfluence(s,t).filter(i=>s.cells[i]===t.owner);
   delete t.contestedBy;
   delete t.contestedResolveTurn;
   delete t.overloadExpiresTurn;
@@ -121,6 +143,7 @@ export function resolveDueTakeovers(s,owner) {
     const insertionSeeds=s.cells[center]===target && s.stability[center]==='temporary'
       ? new Set(E.component(s,center)):new Set();
     t.owner=owner;t.state='normal';t.activationTurn=s.turnIndex;
+    t.skipGrowthTurn=s.turnIndex;t.influence=[];
     t.slot='ABCDE'.split('').find(slot=>!s.towers.some(a=>a.id!==t.id&&a.owner===owner&&a.slot===slot));
     delete t.contestedBy;delete t.contestedResolveTurn;delete t.overloadExpiresTurn;
     E.recompute(s);

@@ -991,7 +991,7 @@ function frame(time) {
     aim,
     select: selection,
     selectIds: selection ? selectionTargets().map(t=>t.id) : [],
-    labels: {overload:t("Overload"),shielded:t("Shielded"),takeoverStart:t("Takeover pending"),takeoverComplete:t("Takeover complete"),reclaim:t("Reclaimed")},
+    labels: {overload:t("Overload"),shielded:t("Shielded"),takeoverStart:t("Takeover pending"),takeoverComplete:t("Takeover complete"),reclaim:t("Reclaimed"),restore:t("Restored")},
     effects,
     transitions,
     time,

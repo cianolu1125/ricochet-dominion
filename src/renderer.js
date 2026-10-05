@@ -3,6 +3,8 @@ import { tilePresentation } from "./feedback.js";
 import { drawEffects } from "./effects.js";
 import { toView } from "./view.js";
 import { origin, previewImpact } from "./physics.js";
+import { regionContours } from "./region-outline.js";
+import { layoutBattlefieldLabel } from "./battlefield-labels.js";
 export const TEAM = { 1: "#efaaa2", 2: "#9bc7f0" };
 const FILL = { 0: "#253542", 1: "#66454e", 2: "#355976" };
 const RGB = Object.fromEntries(
@@ -75,8 +77,8 @@ export function render(canvas, s, v) {
         transition && show.progress < 0.7
           ? transition.fromTemporary
           : s.stability[i] === "temporary";
-      const targetAlpha = s.stability[i] === "temporary" ? 0.86 : 1,
-        fromAlpha = transition?.fromTemporary ? 0.86 : 1;
+      const targetAlpha = 1,
+        fromAlpha = 1;
       if (show.lift > 0) {
         ctx.globalAlpha = show.lift * 0.3;
         ctx.fillStyle = "#020a12";
@@ -96,74 +98,69 @@ export function render(canvas, s, v) {
       }
       ctx.globalAlpha = 1;
       if (temporary) {
-        const drift=v.reduced ? .25 : Math.sin(v.time/530 + (x+y)*.16)*.11;
-        const shadow=ctx.createLinearGradient(p.x-.5+drift,p.y-.5,p.x+.5+drift,p.y+.5);
-        shadow.addColorStop(0,'#08142108');shadow.addColorStop(.55,'#08142132');shadow.addColorStop(1,'#08142190');
-        ctx.fillStyle=shadow;ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
-        ctx.strokeStyle=TEAM[o]+'55';ctx.lineWidth=Math.max(.025,.6/tile);
-        // Sparse interrupted diagonal gives a static cue at low brightness and reduced motion.
-        ctx.beginPath();ctx.moveTo(p.x-.30,p.y+.29);ctx.lineTo(p.x-.02,p.y+.01);ctx.moveTo(p.x+.09,p.y-.1);ctx.lineTo(p.x+.29,p.y-.30);ctx.stroke();
+        // Static, rotation-safe dark tile with two hand-drawn inner shadow corners.
+        ctx.fillStyle='#05080b33';ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
+        ctx.strokeStyle='#05080ba6';ctx.lineWidth=Math.max(.045,1.25/tile);
+        ctx.beginPath();
+        ctx.moveTo(p.x-.12,p.y-.35);ctx.lineTo(p.x-.35,p.y-.35);ctx.lineTo(p.x-.35,p.y-.10);
+        ctx.moveTo(p.x+.12,p.y+.35);ctx.lineTo(p.x+.35,p.y+.35);ctx.lineTo(p.x+.35,p.y+.10);ctx.stroke();
       }
       const hasProtection=Boolean(s.protectedBy[i]?.length);
       const protection=transition && transition.fromProtected!==undefined ? Number(transition.fromProtected)+(Number(hasProtection)-Number(transition.fromProtected))*progress : Number(hasProtection);
       if(protection>0) {
         ctx.save();ctx.globalAlpha=protection;
-        const membrane=ctx.createRadialGradient(p.x,p.y,.04,p.x,p.y,.55);
-        membrane.addColorStop(0,TEAM[o]+'19');membrane.addColorStop(1,TEAM[o]+'00');ctx.fillStyle=membrane;ctx.fillRect(p.x-.42,p.y-.42,.84,.84);
-        ctx.strokeStyle=TEAM[o]+'80';ctx.lineWidth=Math.max(.025,1/tile);
-        ctx.beginPath();
-        for(const dx of [-1,1])for(const dy of [-1,1]){
-          ctx.moveTo(p.x+dx*.21,p.y+dy*.40);ctx.lineTo(p.x+dx*.40,p.y+dy*.40);ctx.lineTo(p.x+dx*.40,p.y+dy*.21);
-        }ctx.stroke();
-        const scan=(v.time%4200)/600;
-        if(!v.reduced && scan<1 && hasProtection){
-          const band=(x+y)/(s.width+s.height);
-          const light=Math.max(0,1-Math.abs(scan-band)*9);
-          ctx.globalAlpha=light*.16*protection;ctx.fillStyle=TEAM[o];ctx.fillRect(p.x-.40,p.y-.40,.8,.8);
-        }
+        ctx.strokeStyle=TEAM[o]+'88';ctx.lineWidth=Math.max(.025,.8/tile);
+        ctx.strokeRect(p.x-.35,p.y-.35,.70,.70);
         ctx.restore();
       }
       if(!pending.has(i) && transition?.fromPending && progress<1)pending.set(i,transition.fromPending);
-      if (pending.has(i)) {
-        ctx.strokeStyle = TEAM[pending.get(i)];
-        ctx.globalAlpha =
-          (0.5 + (0.16 * (Math.sin(v.reduced ? 0 : v.time / 330) + 1)) / 2) *
-          (transition?.fromPending && !s.claims.some(c=>c.cells.includes(i)) ? 1-progress : 1);
-        ctx.lineWidth = Math.max(.025,1/tile);
-        ctx.setLineDash([.25,.10]);ctx.lineDashOffset=v.reduced ? 0 : -v.time/2100;
-        ctx.beginPath();
-        for (const [dx, dy] of [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          const nx = x + dx,
-            ny = y + dy,
-            j = ny * s.width + nx;
-          if (
-            nx >= 0 &&
-            nx < s.width &&
-            ny >= 0 &&
-            ny < s.height &&
-            pending.get(j) === pending.get(i)
-          )
-            continue;
-          const h = pt({ x: x + 0.5 + dx * 0.47, y: y + 0.5 + dy * 0.47 });
-          if (dx) {
-            ctx.moveTo(h.x, h.y - 0.47);
-            ctx.lineTo(h.x, h.y + 0.47);
-          } else {
-            ctx.moveTo(h.x - 0.47, h.y);
-            ctx.lineTo(h.x + 0.47, h.y);
-          }
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.setLineDash([]);
-      }
       ctx.restore();
     }
+  const placedLabels=[];
+  const label=(text,p,color)=>{
+    if(!text)return;
+    const font=Math.max(.46,9/tile);
+    ctx.save();ctx.font='600 '+font+'px system-ui';
+    const w=ctx.measureText(text).width||text.length*font*.72;
+    const position=layoutBattlefieldLabel(s,p,v.rotation||0,w,font,placedLabels);
+    placedLabels.push(position);
+    // Cancel board rotation around the board center; the label itself is now
+    // drawn in the same upright screen coordinates used by the bounds check.
+    ctx.translate(s.width/2,s.height/2);ctx.rotate(-(v.rotation||0));ctx.translate(-s.width/2,-s.height/2);
+    ctx.translate(position.x,position.y);
+    ctx.fillStyle=color;ctx.textAlign='left';
+    ctx.fillText(text,0,0);ctx.restore();
+  };
+  const drawRegion=(cells,kind,owner,withLabel=false)=>{
+    if(!cells.length)return;
+    const contours=regionContours(s,cells);
+    const path=()=>{
+      ctx.beginPath();
+      for(const points of contours){const a=pt(points[0]);ctx.moveTo(a.x,a.y);
+        for(const point of points.slice(1)){const b=pt(point);ctx.lineTo(b.x,b.y);}}
+    };
+    ctx.save();ctx.lineWidth=Math.max(.025,.85/tile);ctx.lineJoin='round';
+    if(kind==='overload') {
+      ctx.strokeStyle=TEAM[owner]+'99';ctx.setLineDash([.22,.16]);
+      ctx.lineDashOffset=v.reduced?0:-v.time/8000*.38;path();ctx.stroke();
+    } else {
+      ctx.strokeStyle='#d3d9d060';path();ctx.stroke();
+      ctx.lineWidth=Math.max(.035,1/tile);ctx.setLineDash([.24,.24]);
+      const offset=v.reduced?0:-v.time/6500*.48;
+      for(const team of [1,2]){ctx.strokeStyle=TEAM[team]+'88';ctx.lineDashOffset=offset+(team===2?.24:0);path();ctx.stroke();}
+    }
+    ctx.restore();
+    if(withLabel){const points=contours.flat().map(pt),top=Math.min(...points.map(p=>p.y));
+      const right=Math.max(...points.filter(p=>p.y===top).map(p=>p.x));
+      label(v.contestedLabel||'CONTESTED',{x:right+.1,y:top-.2},'#d7e2ea');}
+  };
+  const regions=new Map();
+  for(const [i,owner] of pending){if(!regions.has(owner))regions.set(owner,[]);regions.get(owner).push(i);}
+  for(const [owner,cells] of regions)drawRegion(cells,'contested',owner,true);
+  for(const t of s.towers) {
+    if(t.state==='overloaded')drawRegion(t.influence||[],'overload',t.owner);
+    if(t.state==='contested')drawRegion(t.influence||[],'contested',t.owner);
+  }
   for (const t of s.towers) {
     const building = v.effects.find(
       (e) =>
@@ -189,16 +186,12 @@ export function render(canvas, s, v) {
     ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
     const relay = relayStatus(s, t);
     if (relay === "available") {
-      ctx.save();
-      ctx.globalAlpha = v.reduced ? 0.85 : 0.80 + Math.sin(v.time / 220) * 0.08;
-      ctx.strokeStyle = TEAM[t.owner];
-      ctx.lineWidth = Math.max(.035,1.2/tile);
-      ctx.shadowColor = TEAM[t.owner];
-      ctx.shadowBlur = v.reduced ? 0 : 0.16 * tile;
-      ctx.beginPath();
-      const orbit=v.reduced ? -.8 : v.time/1900*Math.PI*2;
-      ctx.arc(p.x,p.y,.57,orbit,orbit+Math.PI*4/3);
-      ctx.stroke();
+      ctx.save();ctx.globalAlpha=.82;ctx.strokeStyle=TEAM[t.owner];
+      ctx.lineWidth=Math.max(.035,1.1/tile);
+      for(const [r,period,dir] of [[.57,4800,1],[.69,6000,-1]]) {
+        const orbit=v.reduced?-.8:dir*v.time/period*Math.PI*2;
+        ctx.beginPath();ctx.arc(p.x,p.y,r,orbit,orbit+Math.PI*.65);ctx.stroke();
+      }
       ctx.restore();
     }
     const captured = v.effects.find(e =>
@@ -217,21 +210,23 @@ export function render(canvas, s, v) {
       ctx.stroke();
     }
     if(overload) {
-      ctx.strokeStyle=TEAM[t.owner]+'a0';ctx.lineWidth=Math.max(.025,1/tile);
-      for(let n=0;n<3;n++){
-        const angle=n*Math.PI*2/3+.2;ctx.beginPath();ctx.arc(p.x,p.y,.62,angle,angle+1.15);ctx.stroke();
+      ctx.strokeStyle=TEAM[t.owner]+'80';ctx.lineWidth=Math.max(.025,.9/tile);
+      const orbit=v.reduced?0:v.time/8000*Math.PI*2;
+      for(let n=0;n<3;n++) {
+        const angle=n*Math.PI*2/3+.2+orbit;
+        ctx.beginPath();ctx.arc(p.x,p.y,.62,angle,angle+1.15);ctx.stroke();
       }
-      const turnFraction=s.turnIndex===t.overloadStartedTurn?.95:.50;
-      ctx.strokeStyle=TEAM[t.owner]+'66';ctx.beginPath();ctx.arc(p.x,p.y,.74,-Math.PI/2,-Math.PI/2+turnFraction*Math.PI*2);ctx.stroke();
-      if(!v.reduced && (v.time+t.id*210)%2900<180){ctx.beginPath();ctx.moveTo(p.x+.46,p.y-.38);ctx.lineTo(p.x+.54,p.y-.49);ctx.lineTo(p.x+.59,p.y-.40);ctx.stroke();}
+      label(v.labels?.overload||'OVERLOAD',{x:p.x+.65,y:p.y+.86},TEAM[t.owner]);
     }
     if(contested) {
-      const shift=v.reduced?0:Math.sin(v.time/330)*.25;
-      ctx.lineWidth=Math.max(.04,1.2/tile);
-      for(const [owner,start] of [[t.owner,.15+shift],[t.contestedBy||3-t.owner,Math.PI+.15-shift]]){
-        ctx.strokeStyle=TEAM[owner];ctx.beginPath();ctx.arc(p.x,p.y,.69,start,start+2.55);ctx.stroke();
+      ctx.lineWidth=Math.max(.035,1.1/tile);
+      for(const [owner,r,dir,start] of [[1,.69,1,.15],[2,.79,-1,Math.PI+.15]]) {
+        const angle=start+(v.reduced?0:dir*v.time/5500*Math.PI*2);
+        ctx.strokeStyle=TEAM[owner];ctx.beginPath();ctx.arc(p.x,p.y,r,angle,angle+2.15);ctx.stroke();
       }
+      label(v.contestedLabel||'CONTESTED',{x:p.x+.85,y:p.y-.5},'#d7e2ea');
     }
+    ctx.strokeStyle=TEAM[t.owner]+'99';
     for (let n = 0; n < (overload ? 0 : t.stage); n++) {
       const r = 0.43 + n * 0.11;
       ctx.lineWidth = 0.03;

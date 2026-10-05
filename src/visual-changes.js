@@ -40,11 +40,14 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
       );
   for (const t of added)
     emit("build", { x: t.pos.x + 0.5, y: t.pos.y + 0.5 }, { owner: t.owner });
-  const grown = s.towers.filter((t) =>
-    before.towers.some((o) => o.id === t.id && o.stage < t.stage),
-  );
-  for (const t of grown)
-    emit("grow", { x: t.pos.x + 0.5, y: t.pos.y + 0.5 }, { owner: t.owner });
+  const grown=s.towers.filter(t=>before.towers.some(o=>o.id===t.id && o.owner===t.owner &&
+    o.state!=='overloaded' && o.state!=='contested' &&
+    (o.stage<t.stage || (t.influence||[]).some(i=>!(o.influence||o.protected).includes(i)))));
+  for(const t of grown) {
+    const old=before.towers.find(o=>o.id===t.id),previous=new Set(old.influence||old.protected);
+    const cells=(t.influence||t.protected).filter(i=>!previous.has(i));
+    emit('grow',{x:t.pos.x+.5,y:t.pos.y+.5},{owner:t.owner,cells,width:s.width,stage:t.stage});
+  }
   const claims = before.claims.filter(
     (c) => !s.claims.some((n) => n.id === c.id) && c.captor === s.current,
   );
@@ -127,7 +130,7 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
   );
   for (const i of cells) {
     const colorChanged = before.cells[i] !== s.cells[i],
-      wave = colorChanged && waveCells.has(i);
+      wave = waveCells.has(i) && (colorChanged || grown.some(t=>t.protected.includes(i)));
     let a = anchor,
       delay;
     if (!impact && !converted.includes(i) && grown.length) {
@@ -164,6 +167,7 @@ export function visualChanges(s, before, events, time, reduced, transitions) {
       delay = converted.includes(i)
         ? (distance(i, a) / maxDistance) * 270
         : Math.min(80, distance(i, a) * 18);
+    if(grown.some(t=>t.protected.includes(i)) && !impact && !strategic && !reduced)delay+=100;
     transitions.set(i, {
       from: before.cells[i],
       to: s.cells[i],
