@@ -69,7 +69,7 @@ async function setup(
   w.document.modelContext = { registerTool: (t) => (tool = t) };
   const canvas = w.document.getElementById("board");
   canvas.getContext = () =>
-    new Proxy({}, { get: (o,key) => key === "createLinearGradient" || key === "createRadialGradient" ? () => ({addColorStop(){}}) : () => {}, set: () => true });
+    new Proxy({}, { get: (o,key) => key === "measureText" ? text => ({width: text.length * .35}) : key === "createLinearGradient" || key === "createRadialGradient" ? () => ({addColorStop(){}}) : () => {}, set: () => true });
   canvas.parentElement.getBoundingClientRect = () => ({
     width: w.innerWidth,
     height: w.innerHeight,
