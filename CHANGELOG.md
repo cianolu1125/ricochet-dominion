@@ -1,6 +1,7 @@
 # v0.7.0 — 2026-10-07
 
 - Added offline VS Computer with Easy / Normal / Hard; shared V0.6.2 rules, physics, actions, HP and match lengths. Local PvP is preserved.
+- Hard closing evaluation follows actual area, HP and outpost-count score order; nonfatal HP advantages cannot outweigh territory. Direct kill and 60% terminal victories keep highest priority.
 - Isolated Worker search, seeded decision variation and independent nonzero execution aim/power error. Real launch outcomes and relay captures trigger dynamic replanning.
 - Semantic targets, wall reflections, bounded relay beam search, move/action order evaluation, dynamic strategy and normalized infrastructure/territory/safety/pending scoring. Hard adds local refinement, whole-chain robustness and selective opponent replies with comparable per-plan budgets.
 - Human Red fixed PvE view, lightweight computer status and input lock, actual-direction cue, settings/background pause, full cue on resume, fresh rematch seed and generation/request/state guards.
