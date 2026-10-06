@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-for (const file of readdirSync("src").filter((file) => file.endsWith(".js"))) {
+for (const file of readdirSync("src", {recursive: true}).filter((file) => file.endsWith(".js"))) {
   const result = spawnSync(process.execPath, ["--check", `src/${file}`], {
     stdio: "inherit",
   });
