@@ -1,6 +1,7 @@
 {
   "version": "0.7.0",
-  "description": "18 real-engine matches, reduced 80-node search budget for flow and invariant checks; strength evidence is the separate full-budget paired lab.",
+  "date": "2026-10-07",
+  "description": "18 real-engine matches on final release code, reduced 80-node search budget for flow and invariant checks; strength evidence is the separate full-budget paired lab.",
   "results": [
     {
       "red": "easy",
@@ -29,7 +30,7 @@
       "metrics": {
         "decisions": 64,
         "nodes": 1582,
-        "maxDecisionMs": 142.52581199999986,
+        "maxDecisionMs": 147.69364300000007,
         "charge1": 4,
         "charge2": 0,
         "charge3": 0,
@@ -71,7 +72,7 @@
       "metrics": {
         "decisions": 87,
         "nodes": 2908,
-        "maxDecisionMs": 346.3186289999994,
+        "maxDecisionMs": 180.64150699999936,
         "charge1": 4,
         "charge2": 0,
         "charge3": 0,
@@ -113,7 +114,7 @@
       "metrics": {
         "decisions": 111,
         "nodes": 3724,
-        "maxDecisionMs": 457.3172489999997,
+        "maxDecisionMs": 207.04977599999984,
         "charge1": 5,
         "charge2": 0,
         "charge3": 0,
@@ -155,7 +156,7 @@
       "metrics": {
         "decisions": 51,
         "nodes": 1694,
-        "maxDecisionMs": 110.22144300000036,
+        "maxDecisionMs": 91.38782300000094,
         "charge1": 0,
         "charge2": 0,
         "charge3": 0,
@@ -197,7 +198,7 @@
       "metrics": {
         "decisions": 77,
         "nodes": 3110,
-        "maxDecisionMs": 201.19226899999921,
+        "maxDecisionMs": 123.3587609999995,
         "charge1": 4,
         "charge2": 0,
         "charge3": 0,
@@ -239,7 +240,7 @@
       "metrics": {
         "decisions": 100,
         "nodes": 4031,
-        "maxDecisionMs": 390.3029889999998,
+        "maxDecisionMs": 132.5394379999998,
         "charge1": 4,
         "charge2": 1,
         "charge3": 0,
@@ -267,32 +268,32 @@
       },
       "round": 10,
       "territory": [
-        110,
-        109
+        107,
+        92
       ],
       "hp": [
         10,
         10
       ],
       "outposts": [
-        5,
+        3,
         5
       ],
       "metrics": {
-        "decisions": 57,
-        "nodes": 4142,
-        "maxDecisionMs": 651.3018420000008,
-        "charge1": 0,
+        "decisions": 69,
+        "nodes": 5176,
+        "maxDecisionMs": 109.00870700000087,
+        "charge1": 9,
         "charge2": 0,
         "charge3": 0,
         "overload": 0,
-        "shielded": 0,
+        "shielded": 9,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 0,
-        "build": 10,
-        "dismantle": 1,
+        "carry": 1,
+        "build": 7,
+        "dismantle": 0,
         "timedOut": 0
       }
     },
@@ -304,37 +305,37 @@
       "profile": "phone",
       "equalError": false,
       "winner": {
-        "player": 2,
-        "reason": "hp"
+        "player": 1,
+        "reason": "score"
       },
-      "round": 13,
+      "round": 14,
       "territory": [
-        113,
-        74
+        150,
+        100
       ],
       "hp": [
-        0,
-        2
+        13,
+        14
       ],
       "outposts": [
         5,
-        3
+        5
       ],
       "metrics": {
-        "decisions": 97,
-        "nodes": 6824,
-        "maxDecisionMs": 500.9400339999993,
-        "charge1": 18,
+        "decisions": 110,
+        "nodes": 8199,
+        "maxDecisionMs": 166.52735799999937,
+        "charge1": 11,
         "charge2": 2,
         "charge3": 0,
-        "overload": 0,
-        "shielded": 20,
+        "overload": 1,
+        "shielded": 12,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 13,
-        "build": 8,
-        "dismantle": 1,
+        "carry": 7,
+        "build": 14,
+        "dismantle": 4,
         "timedOut": 0
       }
     },
@@ -346,37 +347,37 @@
       "profile": "phone",
       "equalError": false,
       "winner": {
-        "player": 1,
+        "player": 2,
         "reason": "score"
       },
       "round": 18,
       "territory": [
-        169,
-        103
+        136,
+        170
       ],
       "hp": [
         18,
         18
       ],
       "outposts": [
-        5,
+        1,
         5
       ],
       "metrics": {
-        "decisions": 105,
-        "nodes": 7482,
-        "maxDecisionMs": 308.10202500000014,
-        "charge1": 2,
+        "decisions": 119,
+        "nodes": 8491,
+        "maxDecisionMs": 318.4544859999951,
+        "charge1": 4,
         "charge2": 2,
         "charge3": 1,
-        "overload": 0,
+        "overload": 2,
         "shielded": 5,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 6,
-        "build": 14,
-        "dismantle": 3,
+        "carry": 4,
+        "build": 17,
+        "dismantle": 2,
         "timedOut": 0
       }
     },
@@ -407,7 +408,7 @@
       "metrics": {
         "decisions": 58,
         "nodes": 1660,
-        "maxDecisionMs": 143.4291130000056,
+        "maxDecisionMs": 152.35040599999775,
         "charge1": 0,
         "charge2": 0,
         "charge3": 0,
@@ -449,7 +450,7 @@
       "metrics": {
         "decisions": 81,
         "nodes": 2462,
-        "maxDecisionMs": 254.4756830000115,
+        "maxDecisionMs": 225.92974899999535,
         "charge1": 2,
         "charge2": 0,
         "charge3": 0,
@@ -491,7 +492,7 @@
       "metrics": {
         "decisions": 108,
         "nodes": 2285,
-        "maxDecisionMs": 88.91419799999858,
+        "maxDecisionMs": 149.87207599999965,
         "charge1": 5,
         "charge2": 0,
         "charge3": 0,
@@ -533,7 +534,7 @@
       "metrics": {
         "decisions": 53,
         "nodes": 1755,
-        "maxDecisionMs": 132.12004799999704,
+        "maxDecisionMs": 152.10955000000104,
         "charge1": 4,
         "charge2": 0,
         "charge3": 0,
@@ -575,7 +576,7 @@
       "metrics": {
         "decisions": 77,
         "nodes": 3088,
-        "maxDecisionMs": 169.3913360000006,
+        "maxDecisionMs": 206.72565200000827,
         "charge1": 9,
         "charge2": 1,
         "charge3": 0,
@@ -617,7 +618,7 @@
       "metrics": {
         "decisions": 93,
         "nodes": 3588,
-        "maxDecisionMs": 368.4727189999976,
+        "maxDecisionMs": 173.72386700000789,
         "charge1": 9,
         "charge2": 0,
         "charge3": 0,
@@ -640,13 +641,13 @@
       "profile": "desktop",
       "equalError": false,
       "winner": {
-        "player": 2,
+        "player": 1,
         "reason": "score"
       },
       "round": 10,
       "territory": [
-        109,
-        137
+        147,
+        112
       ],
       "hp": [
         10,
@@ -654,23 +655,23 @@
       ],
       "outposts": [
         5,
-        5
+        4
       ],
       "metrics": {
-        "decisions": 57,
-        "nodes": 4264,
-        "maxDecisionMs": 924.4499229999929,
-        "charge1": 2,
-        "charge2": 0,
+        "decisions": 78,
+        "nodes": 5947,
+        "maxDecisionMs": 181.67131599999266,
+        "charge1": 3,
+        "charge2": 1,
         "charge3": 0,
-        "overload": 0,
-        "shielded": 2,
+        "overload": 4,
+        "shielded": 0,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 0,
-        "build": 9,
-        "dismantle": 1,
+        "carry": 2,
+        "build": 12,
+        "dismantle": 2,
         "timedOut": 0
       }
     },
@@ -682,13 +683,13 @@
       "profile": "desktop",
       "equalError": false,
       "winner": {
-        "player": 2,
+        "player": 1,
         "reason": "score"
       },
       "round": 14,
       "territory": [
-        130,
-        162
+        163,
+        117
       ],
       "hp": [
         14,
@@ -696,23 +697,23 @@
       ],
       "outposts": [
         5,
-        5
+        4
       ],
       "metrics": {
-        "decisions": 76,
-        "nodes": 5526,
-        "maxDecisionMs": 444.89464499999303,
-        "charge1": 6,
-        "charge2": 1,
+        "decisions": 102,
+        "nodes": 7509,
+        "maxDecisionMs": 181.40861999998742,
+        "charge1": 1,
+        "charge2": 0,
         "charge3": 0,
-        "overload": 0,
-        "shielded": 7,
+        "overload": 1,
+        "shielded": 0,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 1,
-        "build": 8,
-        "dismantle": 0,
+        "carry": 6,
+        "build": 16,
+        "dismantle": 5,
         "timedOut": 0
       }
     },
@@ -724,37 +725,37 @@
       "profile": "desktop",
       "equalError": false,
       "winner": {
-        "player": 1,
+        "player": 2,
         "reason": "score"
       },
       "round": 18,
       "territory": [
-        163,
-        128
+        132,
+        159
       ],
       "hp": [
         18,
         18
       ],
       "outposts": [
-        5,
+        4,
         5
       ],
       "metrics": {
-        "decisions": 109,
-        "nodes": 7956,
-        "maxDecisionMs": 497.3340360000002,
-        "charge1": 4,
-        "charge2": 1,
-        "charge3": 0,
-        "overload": 1,
-        "shielded": 4,
+        "decisions": 127,
+        "nodes": 9181,
+        "maxDecisionMs": 240.55415900000662,
+        "charge1": 8,
+        "charge2": 3,
+        "charge3": 1,
+        "overload": 0,
+        "shielded": 12,
         "takeoverStart": 0,
         "takeoverComplete": 0,
         "reclaim": 0,
-        "carry": 3,
-        "build": 15,
-        "dismantle": 4,
+        "carry": 5,
+        "build": 17,
+        "dismantle": 2,
         "timedOut": 0
       }
     }
