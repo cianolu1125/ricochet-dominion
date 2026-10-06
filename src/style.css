@@ -725,3 +725,8 @@ h2 {
 #stack:has(.back):has(p) .branch-lines {opacity:.5;}
 #relay-hud.overload .relay-node.lit.latest {outline:1px dashed var(--relay-team);outline-offset:3px;}
 #relay-hud.shielded .relay-node.lit.latest {box-shadow:0 0 8px var(--relay-team);}
+
+.difficulty-list { display:grid; gap:.65rem; margin:1.4rem 0; }
+.difficulty-list button { text-align:left; padding:1rem 1.2rem; }
+.difficulty-list strong { display:block; font-size:1.1rem; }
+.difficulty-list small { display:block; margin-top:.35rem; font-size:.875rem; line-height:1.5; opacity:.72; }

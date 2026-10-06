@@ -1,4 +1,6 @@
 import "./style.css";
+import { AIController } from "./ai/ai-controller.js";
+import { executeDecision } from "./ai/ai-executor.js";
 import { RelayHUD } from "./relay-hud.js";
 import { AudioDirector } from "./audio.js";
 import { FeedbackDirector } from "./feedback.js";
@@ -16,6 +18,7 @@ const $ = (id) => document.getElementById(id),
   canvas = $("board"),
   reduced = matchMedia("(prefers-reduced-motion: reduce)"),
   touch = () => matchMedia("(pointer: coarse)").matches;
+let matchMode = "local-pvp", difficulty = "normal", ai;
 let selectedRounds = 14,
   state = E.createGame(14, profileFor(innerWidth, innerHeight, touch())),
   viewOwner = 1,
@@ -77,6 +80,35 @@ const feedback = new FeedbackDirector(audio);
 const cinematic = new UltimateDirector();
 let endAfterUltimate = false;
 feedback.reduced = reduceMotion;
+const computerTurn = () => matchMode === "pve" && state.current === 2 && !state.winner;
+ai = new AIController({
+  getState: () => state,
+  isBlocked: time => !!overlayKind || document.hidden || rotationStart !== null ||
+    observeUntil !== null || settlingUntil !== null || cinematic.busy(time) ||
+    feedback.frozen(time) || transitions.size > 0 || feedback.effects.some(e => e.born + e.duration > time),
+  onCue: decision => {
+    if (decision) {
+      if (state.phase === "IDLE") E.chooseAim(state, decision.kind);
+      aim = {...decision.direction, power: decision.power};
+      menuLevel = null; selection = null;
+    } else aim = null;
+  },
+  onChange: () => update(),
+  execute: decision => {
+    if (!computerTurn()) return false;
+    if (decision.type === "end") { end(true); return true; }
+    if (decision.type === "launch") {
+      if (state.phase === "IDLE" && !E.chooseAim(state, decision.kind)) return false;
+      return fire({...decision.direction, power: decision.power});
+    }
+    const before = visualSnapshot();
+    const valid = executeDecision(state, decision);
+    if (!valid) return false;
+    visualChanges(before); menuLevel = null; selection = null;
+    if (state.phase === "HANDOFF") { hideOpponent(); ready(); }
+    update(); return true;
+  },
+});
 function submit(type, meta = {}, time = performance.now()) {
   const eventId = feedbackId();
   feedback.submit(
@@ -123,7 +155,7 @@ function rolePoint(owner) {
 }
 function positionOpponent() {
   if (!opponentVisible) return;
-  const p = rolePoint(E.enemy(state.current)),
+  const p = rolePoint(matchMode === "pve" ? 2 : E.enemy(state.current)),
     r = canvas.getBoundingClientRect(),
     v = boardViewport(),
     center = { x: r.left + v.x + v.width / 2, y: r.top + v.y + v.height / 2 };
@@ -206,6 +238,7 @@ function drawStack() {
   const stack = $("stack"),
     idle =
       state.phase === "IDLE" &&
+      !computerTurn() &&
       !overlayKind &&
       rotationStart === null &&
       observeUntil === null &&
@@ -327,6 +360,7 @@ function positionMenu() {
   }
 }
 function cancelCurrentAim() {
+  if (computerTurn()) return;
   if (!state.phase.includes("AIM")) return;
   const missile = state.phase.startsWith("MISSILE"),
     relay = state.committed;
@@ -365,8 +399,8 @@ function update() {
     "/" +
     state.maxRounds;
   for (const [id, owner] of [
-    ["current", c],
-    ["opponent", E.enemy(c)],
+    ["current", matchMode === "pve" ? 1 : c],
+    ["opponent", matchMode === "pve" ? 2 : E.enemy(c)],
   ]) {
     $(id === "opponent" ? "opponent-info" : id).innerHTML = playerHUD(owner);
     $(id).style.setProperty("--team", TEAM[owner]);
@@ -374,13 +408,14 @@ function update() {
   $("charge").hidden = !state.phase.startsWith("MISSILE");
   $("charge").textContent =
     t("Charge") + " " + ["0", "Ⅰ", "Ⅱ", "Ⅲ"][state.charge];
-  $("hint").textContent = selection ? t(selection === "takeover-replace" ? "Select replacement" : "Select Outpost") : "";
+  $("hint").textContent = computerTurn() ? t(ai?.thinking ? "Computer thinking" : "Computer Turn") + " · " + t(difficulty) : selection ? t(selection === "takeover-replace" ? "Select replacement" : "Select Outpost") : "";
   const switching =
     rotationStart !== null || observeUntil !== null || settlingUntil !== null;
   $("toolbar").classList.toggle("switching", switching);
   $("toolbar").style.setProperty("--turn-team", TEAM[c]);
   $("fab").textContent = t(switching ? "Switching" : "End Turn");
   $("fab").disabled =
+    computerTurn() ||
     ultimatePlaying ||
     flying ||
     rotationStart !== null ||
@@ -391,7 +426,7 @@ function update() {
     ultimatePlaying || rotationStart !== null || observeUntil !== null || settlingUntil !== null;
   $("help").disabled=ultimatePlaying;
   $("fab").className = `fab ${c === 1 ? "red" : "blue"}`;
-  $("cancel-zone").hidden = !aiming;
+  $("cancel-zone").hidden = !aiming || computerTurn();
   $("cancel-zone").textContent = cancelArmed
     ? t(
         state.phase.startsWith("MOVE")
@@ -418,6 +453,7 @@ function update() {
   if (state.winner && !overlayKind && !ultimatePlaying) result();
 }
 function panel(kind, content) {
+  ai?.pauseCue();
   hideOpponent();
   overlayKind = kind;
   $("overlay").hidden = false;
@@ -436,6 +472,7 @@ function closePanel() {
   update();
 }
 function clearMatch() {
+  ai?.stop();
   cinematic.clear();endAfterUltimate=false;
   audio.stop();
   feedback.clear();
@@ -468,11 +505,15 @@ function clearMatch() {
 }
 function home() {
   clearMatch();
+  matchMode = "local-pvp";
   settingsOrigin = "home";
   panel(
     "home",
-    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${t("Subtitle")}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${t({10:"Quick",14:"Standard",18:"Long"}[n])}<small>${n} ${t("Rounds")}<br>${n} HP</small></button>`).join("")}</div><button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer" disabled>${t("vs Computer")}<small>${t("Coming Soon")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><p class="version">v${VERSION}</p>`,
+    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${t("Subtitle")}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${t({10:"Quick",14:"Standard",18:"Long"}[n])}<small>${n} ${t("Rounds")}<br>${n} HP</small></button>`).join("")}</div><button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer">${t("vs Computer")}<small>${t("Choose difficulty")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><p class="version">v${VERSION}</p>`,
   );
+}
+function difficultyPanel() {
+  panel("difficulty", `<p class="eyebrow">${t("vs Computer")}</p><h2 id="panel-title">${t("Choose difficulty")}</h2><div class="difficulty-list">${["easy", "normal", "hard"].map(d => `<button data-panel="difficulty-${d}" class="${d === difficulty ? "selected" : ""}"><strong>${t(d)}</strong><small>${t(d + " description")}</small></button>`).join("")}</div><button class="primary" data-panel="start-computer">${t("Start Computer")}</button><button class="settings-entry" data-panel="home">${t("Back")}</button>`);
 }
 function start() {
   clearMatch();
@@ -483,6 +524,7 @@ function start() {
     profileFor(innerWidth, innerHeight, touch()),
   );
   viewOwner = 1;
+  ai.start({mode: matchMode, difficulty});
   rotationStart = null;
   observeUntil = null;
   settlingUntil = null;
@@ -524,7 +566,8 @@ function result() {
     `<p class="eyebrow">${t("Game Over")} · ${label}</p><h2 id="panel-title">${w.player ? teamName(w.player) + " " + t("Wins") : t("Draw")}</h2>${[1, 2].map((o) => `<p style="color:${TEAM[o]}">${teamName(o)} · ${((100 * c[o]) / state.cells.length).toFixed(1)}% · ${state.players[o].hp} HP · ${state.towers.filter((t) => t.owner === o).length} ${t("Outposts")}</p>`).join("")}<button class="primary" data-panel="start">${t("Rematch")}</button><button class="settings-entry" data-panel="home">${t("Main Menu")}</button>`,
   );
 }
-function end() {
+function end(fromAI = false) {
+  if (computerTurn() && fromAI !== true) return;
   if (
     cinematic.busy(performance.now()) ||
     overlayKind ||
@@ -579,16 +622,17 @@ function ready() {
   overlayKind = null;
   $("overlay").hidden = true;
   menuLevel = null;
-  if (state.profile !== "desktop" && !reduceMotion) {
+  if (matchMode === "local-pvp" && state.profile !== "desktop" && !reduceMotion) {
     rotationStart = performance.now();
     rotation = 0;
   } else {
-    viewOwner = state.current;
+    viewOwner = matchMode === "pve" ? 1 : state.current;
     observeUntil = performance.now() + 200;
   }
   update();
 }
 function doAction(action) {
+  if (computerTurn()) return;
   if (
     cinematic.busy(performance.now()) ||
     overlayKind ||
@@ -653,7 +697,7 @@ $("stack").addEventListener("click", (event) => {
   }
   doAction(b.dataset.action);
 });
-$("fab").onclick = end;
+$("fab").onclick = () => end();
 $("cancel-zone").onclick = () => {
   if (pointer === null) cancelCurrentAim();
 };
@@ -662,6 +706,9 @@ $("panel").addEventListener("click", (event) => {
   if (!b || b.disabled) return;
   const action = b.dataset.panel;
   if (action === "start") start();
+  else if (action === "computer") difficultyPanel();
+  else if (action.startsWith("difficulty-")) { difficulty = action.slice(11); difficultyPanel(); }
+  else if (action === "start-computer") { matchMode = "pve"; start(); }
   else if (action === "home") home();
   else if (action === "settings") {
     settingsOrigin = "home";
@@ -773,8 +820,10 @@ function fire(a) {
   aim = null;
   pointer = null;
   update();
+  return state.phase.includes("FLYING");
 }
 function pointerDown(event) {
+  if (computerTurn()) return;
   if (
     cinematic.busy(performance.now()) ||
     overlayKind ||
@@ -939,6 +988,7 @@ document.addEventListener("keydown", (e) => {
       closePanel();
     }
   } else if (!overlayKind) {
+    if (computerTurn()) return;
     if (state.phase.includes("AIM")) {
       cancelCurrentAim();
       return;
@@ -953,7 +1003,7 @@ document.addEventListener("keydown", (e) => {
 });
 function frame(time) {
   if(cinematic.update(time,state)) {
-    if(endAfterUltimate&&!state.winner){endAfterUltimate=false;end();}
+    if(endAfterUltimate&&!state.winner){endAfterUltimate=false;end(computerTurn());}
     else endAfterUltimate=false;
     update();
   }
@@ -1015,6 +1065,7 @@ function frame(time) {
   effects = feedback.effects;
   for (const [i, t] of transitions)
     if (time - t.born > t.delay + t.duration) transitions.delete(i);
+  ai.tick(time);
   render(canvas, state, {
     owner: viewOwner,
     rotation,
@@ -1051,6 +1102,7 @@ window.addEventListener("resize", () => {
   update();
 });
 document.addEventListener("visibilitychange", () => {
+  ai.pauseCue();
   cinematic.clear();
   accumulator = 0;
   feedback.clear();
@@ -1063,7 +1115,7 @@ document.addEventListener("visibilitychange", () => {
   pointer = null;
   aim = null;
   if(!document.hidden && endAfterUltimate && !state.winner) {
-    endAfterUltimate=false;end();
+    endAfterUltimate=false;end(computerTurn());
   }
   update();
 });
@@ -1074,7 +1126,7 @@ if (document.modelContext?.registerTool)
         name: "read_match_state",
         title: "Read current match",
         description:
-          "Read the visible local PvP match state without changing it.",
+          "Read the current local PvP or computer match state without changing it.",
         inputSchema: {
           type: "object",
           properties: {},
@@ -1091,6 +1143,8 @@ if (document.modelContext?.registerTool)
             throw Error("Expected empty object");
           return {
             version: VERSION,
+            mode: matchMode, difficulty, viewOwner,
+            matchSeed: ai.session.matchSeed, aiThinking: ai.thinking,
             width: state.width,
             height: state.height,
             profile: state.profile,
