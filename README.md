@@ -1,12 +1,12 @@
 # 弹射战线 · RICOCHET FRONT
 
-**v0.6.1** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.1 完整更新规格](docs/v0.6.1-spec.md)。历史版本规则见 CHANGELOG。
+**v0.6.2** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
 
 ## 当前玩法
 
 - 每回合「移动」「行动」各一次，顺序自由。行动为飞弹、建立／重新部署据点或摧毁据点。五据点上限包含出生据点。
 - 在战场任意位置向后拖拽、松手弹射。真实撞到己方据点实体才捕获、重新瞄准发射；出生据点参与中继，源据点发射不计中继。先锋与飞弹的中继记录独立。同一飞弹每个据点 ID 只捕获一次，之后反弹。
-- 飞弹捕获不同据点 1／3／5 次达到 Charge Ⅰ／Ⅱ／Ⅲ。基础与全部等级均可携带先锋。基础落点 3×3；Ⅰ 扩张 5×5；Ⅱ 切割 3×3＋整行整列；Ⅲ 清洗 5×5＋整行整列，并可直接撞击攻城。十字四方向遇任意保护格立即中断该方向，不造成区域 HP 伤害或远程攻城。
+- 飞弹捕获不同据点 1／3／5 次达到 Charge Ⅰ／Ⅱ／Ⅲ。基础与全部等级均可携带先锋。基础落点 3×3；Ⅰ 扩张 5×5；Ⅱ 切割 3×3＋整行整列；Ⅱ十字遇保护格中断该方向；Ⅲ贯穿攻城为完整 5×5＋整行整列，无视保护强制染色并清除所有敌方 Influence Claim，范围敌塔全部拆除，敌先锋额外 −1 HP。独立携带／落点伤害仍可叠加。
 - 快速／标准／长局固定 10／14／18 轮，双方初始和最大 HP 等于轮数；移除自定义模式。直接碰撞和携带进入敌方稳定／保护领土才 −1；临时／中立／己色安全。连续有效伤害区域不重复。最终携带爆炸先落地、染色，完成地图更新再按最终脚下稳定／保护资格判伤一次；如果最终判伤致命，已经提交的爆炸染色保留。途中致命伤仍立即结束。
 - 己塔捕获时仍沿实际入射线释放并判断进入敌方稳定／保护领土；攻城先确定合法释放位置，再移除敌塔、完成染色并判伤。成功建立／重新部署据点恢复 1 HP，保持原行动成本，上限为模式最大 HP；失败／取消／满血／死亡不产生回血提示。直接命中共享据点格的先锋先处理先锋碰撞，存活才继续攻城。
 - 己色四连通至己塔为稳定领地；断联颜色为临时领地。面积包括两者。敌方临时区域内建塔启动争夺，对手有一完整回合抢救。新接入临时格立即纳入争夺，建塔方下一回合开始按当时整个临时连通块结算；分裂继承原截止时间，恢复稳定部分退出，所有来源消失则取消。
@@ -45,3 +45,6 @@ Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。检查：`npm test`、`npm r
 
 
 v0.6.1: authoritative per-outpost influence masks; overload erosion, temporary restoration, deferred growth and mature frontier recovery. Flux A pure-color static tiles, quiet inner protection frames, dark drawn unstable cues, slow relay/contested/overload rings and accurate irregular region outlines. See [execution record](docs/v0.6.1-progress.md).
+
+
+v0.6.2: independent breakthrough mask, atomic force-paint/influence removal/multi-outpost demolition and fixed range damage. Presentation follows the missile, leads toward impact, locks, detonates, pulls to a full-board purge wave, then gives a distinct damage wave. Input/result gating, reduced motion, resize and interruption cleanup are covered by regression tests. See [execution record](docs/v0.6.2-progress.md).

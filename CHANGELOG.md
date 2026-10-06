@@ -1,3 +1,11 @@
+# v0.6.2 — 2026-10-06
+
+- Charge III uses an independent 5×5 + full-row + full-column mask. All enemy influence claims in range are removed, protected cells force-painted, all enemy outpost centers demolished and the enemy vanguard hit once for −1 HP. Independent damage sources still stack.
+- Surviving outposts retain structure stage and recover lost control through normal growth; recomputation never refills damage. Charge II keeps its protected-stop behavior.
+- Added chase/lead/lock camera, short compression hold, primary detonation, spatial purge and tower fragments, separate damage wave, bounded Canvas effects and grouped Web Audio.
+- Hold input and victory overlays through the cinematic, restore exact viewport, and clean up on interruption. Reduce Motion preserves all rules.
+- Updated bilingual in-game rules, authoritative specification and behavioral regression tests.
+
 ## v0.6.1 · 2026-10-06
 
 - Separate structural stage from per-cell actual influence. Overloaded outposts retain a residual mask; enemy stable/protected conquest persistently erodes it.
