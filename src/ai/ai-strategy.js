@@ -4,6 +4,10 @@ export function strategyFor(position,difficulty,previous=null,turnIndex=0) {
     disruption:.15+p.foe.stable,siege:.1+p.foe.influence,
     elimination:.12+(1-p.foe.hp)*.5,recovery:.1+(1-p.hp)*.4+p.overload+p.contested,
     takeover:.1+p.foe.overload,endgame:p.pressure**3*.7};
+  // Damage/healing operate in HP units, independent of the selected health
+  // cap. Half of 18 HP is not a near-term kill; actual lethal paths retain
+  // terminal priority in search regardless of this strategic preference.
+  if(difficulty==='hard')raw.elimination=.12+.5*Math.max(0,1-p.foe.hpRemaining/4);
   const entries=Object.entries(raw).sort((a,b)=>b[1]-a[1]);
   if(difficulty==='easy') {
     if(previous&&!p.victoryThreat&&turnIndex-previous.changedAt<4)return previous;

@@ -19,7 +19,7 @@ export function analyze(s,perspective) {
     }
     const contested=own.filter(t=>t.state==='contested').length/5;
     const danger=E.isDamagingEnemyTerritory(s,owner)?1:0;
-    owners[owner]={territory:territory/n,stable:stable/n,temporary:temporary/n,hp:p.hp/p.maxHp,
+    owners[owner]={territory:territory/n,stable:stable/n,temporary:temporary/n,hp:p.hp/p.maxHp,hpRemaining:p.hp,
       outpost:strength,influence:influence/n,pending,relay:Math.min(1,relayPairs),
       safety:1-danger-.25*Math.max(0,1-Math.hypot(p.pos.x-s.players[foe].pos.x,p.pos.y-s.players[foe].pos.y)/6),
       overload:own.filter(t=>t.state==='overloaded').length/5+contested,
