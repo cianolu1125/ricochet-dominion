@@ -30,16 +30,16 @@ test("earlier hostile protection wins later growth and overlap survives single r
   E.removeTower(s, c);
   assert.equal(E.protectedOwner(s, E.index(s, { x: 5, y: 5 })), 0);
 });
-test("siege blast cannot steal overlapping protection of another surviving tower", () => {
+test("Charge III siege force-paints overlapping protection and destroys every covered center", () => {
   const s = E.createGame(10);
   s.cells.fill(0);
   s.towers = [];
   const a = t(s, 2, 5, 5),
     b = t(s, 2, 7, 5);
   E.siege(s, a, a.pos);
-  assert.equal(s.cells[E.index(s, { x: 5, y: 5 })], 2);
+  assert.equal(s.cells[E.index(s, { x: 5, y: 5 })], 1);
   assert.equal(s.cells[E.index(s, { x: 3, y: 5 })], 1);
-  assert.equal(s.towers.includes(b), true);
+  assert.equal(s.towers.includes(b), false);
 });
 test("invalid commands reject without spending resources", () => {
   const s = E.createGame(10);

@@ -88,7 +88,8 @@ for (const owner of [1,2]) {
       assert.equal(s.players[owner].hp,hp); assert.equal(drainFacts(s).filter(e=>e.type==='heal').length,0);
     });
 }
-for (const color of [1,2]) for (const level of [2,3])
+// Charge III now has independent breakthrough tests in v062-rules.
+for (const color of [1,2]) for (const level of [2])
   test(`cross ${level}: ${color} protection stops one ray, other rays continue`,()=>{
     const s=fresh(); const t=tower(s,color,11,12);
     E.paintMissile(s,1,{x:8.5,y:12.5},level);

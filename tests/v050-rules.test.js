@@ -170,7 +170,7 @@ test("cross stops at enemy shield and cannot destroy remote tower", () => {
   const s = fresh();
   const t = tower(s, 2, 11, 12, 1);
   E.chooseAim(s, "missile");
-  s.charge = 3;
+  s.charge = 2;
   P.launch(s, { x: 1, y: 0 }, 0.1);
   Object.assign(s.activeBody, { x: 8.5, y: 12.5, vx: 0, vy: 0 });
   fly(s);
