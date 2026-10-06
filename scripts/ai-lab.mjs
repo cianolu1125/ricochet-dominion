@@ -55,9 +55,11 @@ export function playMatch({red='easy',blue='normal',seed=1,rounds=10,profile='ph
 }
 if(import.meta.url===pathToFileURL(process.argv[1]).href) {
  const args=process.argv.slice(2),red=args[0]||'easy',blue=args[1]||'normal',count=Number(args[2]||2),equalError=args.includes('--equal-error'),quick=args.includes('--smoke');
+ const paired=args.includes('--paired'),lengths=args.includes('--lengths'),profile=args.find(a=>a.startsWith('--profile='))?.slice(10)||'phone';
  const results=[];
- for(let i=0;i<count;i++) {
-  const result=playMatch({red:i%2?blue:red,blue:i%2?red:blue,seed:100+i,rounds:quick?[10,14,18][i%3]:10,equalError,nodeBudget:quick?80:undefined});results.push(result);console.log(JSON.stringify(result));
+ for(let i=0;i<count*(paired?2:1);i++) {
+  const pair=paired?Math.floor(i/2):i;
+  const result=playMatch({red:i%2?blue:red,blue:i%2?red:blue,seed:100+pair,profile,rounds:quick||lengths?[10,14,18][pair%3]:10,equalError,nodeBudget:quick?80:undefined});results.push(result);console.log(JSON.stringify(result));
  }
  const output=args.find(a=>a.startsWith('--output='))?.slice(9);if(output)await writeFile(output,JSON.stringify(results,null,2)+'\n');
 }
