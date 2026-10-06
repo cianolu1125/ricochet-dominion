@@ -81,3 +81,10 @@ test('Hard projects fresh outpost maturation without multiplying the value of al
  const gap=tier=>evaluate(mature,1,strategy,tier).score-evaluate(fresh,1,strategy,tier).score;
  assert.ok(gap('hard')<=gap('normal')+.001,'future capacity belongs to fresh structures, not a multiplier on old maturity');
 });
+test('Hard elimination desire uses actual remaining HP consistently across match lengths',async()=>{
+ const {strategyFor}=await import('../src/ai/ai-strategy.js');
+ const desire=(rounds,hp)=>{const s=E.createGame(rounds,'phone');s.players[2].hp=hp;const w=strategyFor(analyze(s,1),'hard').weights;return w.elimination/w.expansion;};
+ assert.ok(Math.abs(desire(10,4)-desire(18,4))<1e-12,'four remaining hits have the same strategic meaning in Quick and Long');
+ assert.ok(desire(18,2)>desire(18,4),'a genuinely near-lethal opponent increases elimination priority');
+ assert.ok(Math.abs(desire(18,9)-desire(18,18))<1e-12,'half of a long health bar is not a near-term finishing opportunity');
+});
