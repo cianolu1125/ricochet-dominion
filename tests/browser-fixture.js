@@ -16,6 +16,7 @@ export async function setup(
     bundle: true,
     write: false,
     format: "iife",
+    define: {"import.meta.url": JSON.stringify("https://example.test/src/main.js")},
     loader: { ".css": "empty" },
     plugins: [
       {

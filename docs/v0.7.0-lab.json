@@ -1,0 +1,1194 @@
+{
+  "version": "0.7.0",
+  "date": "2026-10-07",
+  "description": "Final release code; full native search budgets, paired side assignments and Normal operation error on both sides. Limited calibration evidence, not a universal or statistically powered ranking.",
+  "nodeLimits": {
+    "easy": 260,
+    "normal": 1250,
+    "hard": 5000
+  },
+  "searchWallClockLimitMs": 8000,
+  "automatedTests": {
+    "passed": 356,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0,
+    "durationMs": 157484.544428
+  },
+  "summary": {
+    "easyNormal": {
+      "games": 12,
+      "wins": {
+        "easy": 4,
+        "normal": 8
+      }
+    },
+    "normalHard": {
+      "games": 6,
+      "wins": {
+        "hard": 4,
+        "normal": 2
+      }
+    },
+    "searchCutoffs": 19,
+    "illegalDecisions": 0,
+    "invariantFailures": 0,
+    "stuckMatches": 0
+  },
+  "results": [
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 100,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "score"
+      },
+      "round": 10,
+      "territory": [
+        215,
+        70
+      ],
+      "hp": [
+        8,
+        8
+      ],
+      "outposts": [
+        5,
+        3
+      ],
+      "metrics": {
+        "decisions": 55,
+        "nodes": 8904,
+        "maxDecisionMs": 680.5766629999998,
+        "charge1": 0,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 0,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 4,
+        "build": 7,
+        "dismantle": 1,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 100,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "hp"
+      },
+      "round": 10,
+      "territory": [
+        139,
+        118
+      ],
+      "hp": [
+        9,
+        0
+      ],
+      "outposts": [
+        3,
+        3
+      ],
+      "metrics": {
+        "decisions": 54,
+        "nodes": 8492,
+        "maxDecisionMs": 476.30090999999993,
+        "charge1": 0,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 0,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 7,
+        "build": 6,
+        "dismantle": 2,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 101,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "score"
+      },
+      "round": 14,
+      "territory": [
+        157,
+        132
+      ],
+      "hp": [
+        10,
+        14
+      ],
+      "outposts": [
+        3,
+        3
+      ],
+      "metrics": {
+        "decisions": 85,
+        "nodes": 17638,
+        "maxDecisionMs": 1005.7172260000007,
+        "charge1": 6,
+        "charge2": 1,
+        "charge3": 0,
+        "overload": 2,
+        "shielded": 5,
+        "takeoverStart": 1,
+        "takeoverComplete": 1,
+        "reclaim": 0,
+        "carry": 7,
+        "build": 6,
+        "dismantle": 2,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 101,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 14,
+      "territory": [
+        139,
+        147
+      ],
+      "hp": [
+        14,
+        4
+      ],
+      "outposts": [
+        4,
+        3
+      ],
+      "metrics": {
+        "decisions": 95,
+        "nodes": 19585,
+        "maxDecisionMs": 959.3365800000029,
+        "charge1": 11,
+        "charge2": 1,
+        "charge3": 0,
+        "overload": 3,
+        "shielded": 9,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 7,
+        "dismantle": 2,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 102,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 18,
+      "territory": [
+        113,
+        153
+      ],
+      "hp": [
+        9,
+        11
+      ],
+      "outposts": [
+        5,
+        5
+      ],
+      "metrics": {
+        "decisions": 117,
+        "nodes": 30546,
+        "maxDecisionMs": 1458.2820709999942,
+        "charge1": 12,
+        "charge2": 3,
+        "charge3": 0,
+        "overload": 4,
+        "shielded": 11,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 16,
+        "build": 8,
+        "dismantle": 0,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 102,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "hp"
+      },
+      "round": 11,
+      "territory": [
+        203,
+        131
+      ],
+      "hp": [
+        17,
+        0
+      ],
+      "outposts": [
+        5,
+        3
+      ],
+      "metrics": {
+        "decisions": 67,
+        "nodes": 17042,
+        "maxDecisionMs": 1387.5185679999995,
+        "charge1": 6,
+        "charge2": 1,
+        "charge3": 0,
+        "overload": 3,
+        "shielded": 4,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 10,
+        "build": 7,
+        "dismantle": 1,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 300,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 10,
+      "territory": [
+        127,
+        136
+      ],
+      "hp": [
+        10,
+        10
+      ],
+      "outposts": [
+        5,
+        5
+      ],
+      "metrics": {
+        "decisions": 62,
+        "nodes": 11111,
+        "maxDecisionMs": 1221.9637559999992,
+        "charge1": 3,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 3,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 2,
+        "build": 9,
+        "dismantle": 1,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 300,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "hp"
+      },
+      "round": 10,
+      "territory": [
+        141,
+        124
+      ],
+      "hp": [
+        10,
+        0
+      ],
+      "outposts": [
+        3,
+        3
+      ],
+      "metrics": {
+        "decisions": 52,
+        "nodes": 8837,
+        "maxDecisionMs": 569.874061999999,
+        "charge1": 2,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 1,
+        "shielded": 1,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 6,
+        "dismantle": 2,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 301,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "hp"
+      },
+      "round": 6,
+      "territory": [
+        104,
+        40
+      ],
+      "hp": [
+        0,
+        14
+      ],
+      "outposts": [
+        3,
+        1
+      ],
+      "metrics": {
+        "decisions": 30,
+        "nodes": 3969,
+        "maxDecisionMs": 239.4477139999981,
+        "charge1": 0,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 0,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 2,
+        "dismantle": 0,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 301,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 14,
+      "territory": [
+        123,
+        153
+      ],
+      "hp": [
+        14,
+        6
+      ],
+      "outposts": [
+        3,
+        4
+      ],
+      "metrics": {
+        "decisions": 91,
+        "nodes": 15336,
+        "maxDecisionMs": 666.6132960000032,
+        "charge1": 6,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 4,
+        "shielded": 2,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 8,
+        "dismantle": 3,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "easy",
+      "blue": "normal",
+      "seed": 302,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 18,
+      "territory": [
+        125,
+        220
+      ],
+      "hp": [
+        11,
+        18
+      ],
+      "outposts": [
+        5,
+        5
+      ],
+      "metrics": {
+        "decisions": 112,
+        "nodes": 28964,
+        "maxDecisionMs": 1546.811090999996,
+        "charge1": 5,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 1,
+        "shielded": 4,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 7,
+        "build": 10,
+        "dismantle": 2,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "easy",
+      "seed": 302,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "score"
+      },
+      "round": 18,
+      "territory": [
+        188,
+        168
+      ],
+      "hp": [
+        18,
+        13
+      ],
+      "outposts": [
+        3,
+        4
+      ],
+      "metrics": {
+        "decisions": 118,
+        "nodes": 30262,
+        "maxDecisionMs": 1253.5298960000073,
+        "charge1": 6,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 3,
+        "shielded": 3,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 11,
+        "dismantle": 6,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "hard",
+      "seed": 300,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 10,
+      "territory": [
+        146,
+        172
+      ],
+      "hp": [
+        2,
+        8
+      ],
+      "outposts": [
+        4,
+        2
+      ],
+      "metrics": {
+        "decisions": 57,
+        "nodes": 100545,
+        "maxDecisionMs": 6155.069896000001,
+        "charge1": 2,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 2,
+        "shielded": 0,
+        "takeoverStart": 1,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 6,
+        "build": 6,
+        "dismantle": 1,
+        "timedOut": 0
+      }
+    },
+    {
+      "red": "hard",
+      "blue": "normal",
+      "seed": 300,
+      "rounds": 10,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 10,
+      "territory": [
+        159,
+        177
+      ],
+      "hp": [
+        8,
+        7
+      ],
+      "outposts": [
+        3,
+        5
+      ],
+      "metrics": {
+        "decisions": 56,
+        "nodes": 96219,
+        "maxDecisionMs": 8002.089307999995,
+        "charge1": 0,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 0,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 3,
+        "build": 7,
+        "dismantle": 1,
+        "timedOut": 1
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "hard",
+      "seed": 301,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 2,
+        "reason": "score"
+      },
+      "round": 14,
+      "territory": [
+        171,
+        176
+      ],
+      "hp": [
+        10,
+        13
+      ],
+      "outposts": [
+        5,
+        4
+      ],
+      "metrics": {
+        "decisions": 80,
+        "nodes": 144685,
+        "maxDecisionMs": 8002.299939999997,
+        "charge1": 3,
+        "charge2": 1,
+        "charge3": 0,
+        "overload": 4,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 7,
+        "build": 10,
+        "dismantle": 3,
+        "timedOut": 1
+      }
+    },
+    {
+      "red": "hard",
+      "blue": "normal",
+      "seed": 301,
+      "rounds": 14,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "hp"
+      },
+      "round": 13,
+      "territory": [
+        196,
+        108
+      ],
+      "hp": [
+        13,
+        0
+      ],
+      "outposts": [
+        5,
+        5
+      ],
+      "metrics": {
+        "decisions": 76,
+        "nodes": 127594,
+        "maxDecisionMs": 8002.159244000097,
+        "charge1": 4,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 3,
+        "shielded": 1,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 10,
+        "build": 9,
+        "dismantle": 1,
+        "timedOut": 1
+      }
+    },
+    {
+      "red": "normal",
+      "blue": "hard",
+      "seed": 302,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "score"
+      },
+      "round": 18,
+      "territory": [
+        218,
+        185
+      ],
+      "hp": [
+        11,
+        14
+      ],
+      "outposts": [
+        5,
+        4
+      ],
+      "metrics": {
+        "decisions": 110,
+        "nodes": 209942,
+        "maxDecisionMs": 8001.871179000009,
+        "charge1": 4,
+        "charge2": 0,
+        "charge3": 0,
+        "overload": 4,
+        "shielded": 0,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 11,
+        "build": 7,
+        "dismantle": 0,
+        "timedOut": 1
+      }
+    },
+    {
+      "red": "hard",
+      "blue": "normal",
+      "seed": 302,
+      "rounds": 18,
+      "profile": "phone",
+      "equalError": true,
+      "winner": {
+        "player": 1,
+        "reason": "hp"
+      },
+      "round": 17,
+      "territory": [
+        200,
+        197
+      ],
+      "hp": [
+        13,
+        0
+      ],
+      "outposts": [
+        4,
+        5
+      ],
+      "metrics": {
+        "decisions": 107,
+        "nodes": 225976,
+        "maxDecisionMs": 8009.561033000005,
+        "charge1": 4,
+        "charge2": 1,
+        "charge3": 0,
+        "overload": 1,
+        "shielded": 4,
+        "takeoverStart": 0,
+        "takeoverComplete": 0,
+        "reclaim": 0,
+        "carry": 11,
+        "build": 11,
+        "dismantle": 3,
+        "timedOut": 15
+      }
+    }
+  ],
+  "historical": {
+    "earlierFourMatchRecord": {
+      "version": "0.7.0",
+      "date": "2026-10-06",
+      "description": "Full-budget real-engine phone Quick matches. Sides swapped on seed 101. Four games are calibration, not a statistically powered difficulty ranking.",
+      "nodeLimits": {
+        "easy": 260,
+        "normal": 1250,
+        "hard": 5000
+      },
+      "searchWallClockLimitMs": 8000,
+      "results": [
+        {
+          "red": "normal",
+          "blue": "hard",
+          "seed": 100,
+          "rounds": 10,
+          "profile": "phone",
+          "equalError": true,
+          "winner": {
+            "player": 1,
+            "reason": "score"
+          },
+          "round": 10,
+          "territory": [
+            186,
+            134
+          ],
+          "hp": [
+            10,
+            8
+          ],
+          "outposts": [
+            5,
+            3
+          ],
+          "metrics": {
+            "decisions": 60,
+            "nodes": 114085,
+            "maxDecisionMs": 6256.41889999999,
+            "charge1": 1,
+            "charge2": 0,
+            "charge3": 0,
+            "overload": 1,
+            "shielded": 0,
+            "takeoverStart": 0,
+            "takeoverComplete": 0,
+            "reclaim": 0,
+            "carry": 3,
+            "build": 8,
+            "dismantle": 1,
+            "timedOut": 0
+          }
+        },
+        {
+          "red": "hard",
+          "blue": "normal",
+          "seed": 101,
+          "rounds": 10,
+          "profile": "phone",
+          "equalError": true,
+          "winner": {
+            "player": 1,
+            "reason": "hp"
+          },
+          "round": 10,
+          "territory": [
+            153,
+            180
+          ],
+          "hp": [
+            8,
+            0
+          ],
+          "outposts": [
+            4,
+            4
+          ],
+          "metrics": {
+            "decisions": 60,
+            "nodes": 106209,
+            "maxDecisionMs": 7074.862702999992,
+            "charge1": 2,
+            "charge2": 1,
+            "charge3": 0,
+            "overload": 3,
+            "shielded": 0,
+            "takeoverStart": 0,
+            "takeoverComplete": 0,
+            "reclaim": 0,
+            "carry": 6,
+            "build": 6,
+            "dismantle": 0,
+            "timedOut": 0
+          }
+        },
+        {
+          "red": "normal",
+          "blue": "hard",
+          "seed": 100,
+          "rounds": 10,
+          "profile": "phone",
+          "equalError": false,
+          "winner": {
+            "player": 2,
+            "reason": "hp"
+          },
+          "round": 10,
+          "territory": [
+            182,
+            150
+          ],
+          "hp": [
+            0,
+            6
+          ],
+          "outposts": [
+            4,
+            3
+          ],
+          "metrics": {
+            "decisions": 59,
+            "nodes": 112372,
+            "maxDecisionMs": 6413.9220300000015,
+            "charge1": 2,
+            "charge2": 0,
+            "charge3": 0,
+            "overload": 2,
+            "shielded": 0,
+            "takeoverStart": 0,
+            "takeoverComplete": 0,
+            "reclaim": 0,
+            "carry": 8,
+            "build": 6,
+            "dismantle": 1,
+            "timedOut": 0
+          }
+        },
+        {
+          "red": "hard",
+          "blue": "normal",
+          "seed": 101,
+          "rounds": 10,
+          "profile": "phone",
+          "equalError": false,
+          "winner": {
+            "player": 1,
+            "reason": "hp"
+          },
+          "round": 7,
+          "territory": [
+            163,
+            129
+          ],
+          "hp": [
+            10,
+            0
+          ],
+          "outposts": [
+            4,
+            2
+          ],
+          "metrics": {
+            "decisions": 38,
+            "nodes": 75830,
+            "maxDecisionMs": 7093.072328000009,
+            "charge1": 0,
+            "charge2": 0,
+            "charge3": 0,
+            "overload": 0,
+            "shielded": 0,
+            "takeoverStart": 0,
+            "takeoverComplete": 0,
+            "reclaim": 0,
+            "carry": 4,
+            "build": 4,
+            "dismantle": 0,
+            "timedOut": 0
+          }
+        }
+      ]
+    },
+    "beforeClosingFix": [
+      {
+        "red": "normal",
+        "blue": "hard",
+        "seed": 300,
+        "rounds": 10,
+        "profile": "phone",
+        "equalError": true,
+        "winner": {
+          "player": 1,
+          "reason": "score"
+        },
+        "round": 10,
+        "territory": [
+          187,
+          124
+        ],
+        "hp": [
+          3,
+          10
+        ],
+        "outposts": [
+          5,
+          2
+        ],
+        "metrics": {
+          "decisions": 53,
+          "nodes": 95959,
+          "maxDecisionMs": 6863.829779,
+          "charge1": 0,
+          "charge2": 0,
+          "charge3": 0,
+          "overload": 0,
+          "shielded": 0,
+          "takeoverStart": 0,
+          "takeoverComplete": 0,
+          "reclaim": 0,
+          "carry": 5,
+          "build": 7,
+          "dismantle": 1,
+          "timedOut": 0
+        }
+      },
+      {
+        "red": "hard",
+        "blue": "normal",
+        "seed": 300,
+        "rounds": 10,
+        "profile": "phone",
+        "equalError": true,
+        "winner": {
+          "player": 2,
+          "reason": "score"
+        },
+        "round": 10,
+        "territory": [
+          148,
+          198
+        ],
+        "hp": [
+          8,
+          3
+        ],
+        "outposts": [
+          4,
+          5
+        ],
+        "metrics": {
+          "decisions": 57,
+          "nodes": 107212,
+          "maxDecisionMs": 8001.347791000007,
+          "charge1": 0,
+          "charge2": 0,
+          "charge3": 0,
+          "overload": 0,
+          "shielded": 0,
+          "takeoverStart": 0,
+          "takeoverComplete": 0,
+          "reclaim": 0,
+          "carry": 4,
+          "build": 9,
+          "dismantle": 1,
+          "timedOut": 1
+        }
+      }
+    ],
+    "beforeAbsoluteHpFix": [
+      {
+        "red": "normal",
+        "blue": "hard",
+        "seed": 300,
+        "rounds": 10,
+        "profile": "phone",
+        "equalError": true,
+        "winner": {
+          "player": 2,
+          "reason": "score"
+        },
+        "round": 10,
+        "territory": [
+          146,
+          172
+        ],
+        "hp": [
+          2,
+          8
+        ],
+        "outposts": [
+          4,
+          2
+        ],
+        "metrics": {
+          "decisions": 57,
+          "nodes": 100547,
+          "maxDecisionMs": 6296.898230000006,
+          "charge1": 2,
+          "charge2": 0,
+          "charge3": 0,
+          "overload": 2,
+          "shielded": 0,
+          "takeoverStart": 1,
+          "takeoverComplete": 0,
+          "reclaim": 0,
+          "carry": 6,
+          "build": 6,
+          "dismantle": 1,
+          "timedOut": 0
+        }
+      },
+      {
+        "red": "hard",
+        "blue": "normal",
+        "seed": 300,
+        "rounds": 10,
+        "profile": "phone",
+        "equalError": true,
+        "winner": {
+          "player": 2,
+          "reason": "score"
+        },
+        "round": 10,
+        "territory": [
+          159,
+          177
+        ],
+        "hp": [
+          8,
+          7
+        ],
+        "outposts": [
+          3,
+          5
+        ],
+        "metrics": {
+          "decisions": 56,
+          "nodes": 96121,
+          "maxDecisionMs": 8001.040401000006,
+          "charge1": 0,
+          "charge2": 0,
+          "charge3": 0,
+          "overload": 0,
+          "shielded": 0,
+          "takeoverStart": 0,
+          "takeoverComplete": 0,
+          "reclaim": 0,
+          "carry": 3,
+          "build": 7,
+          "dismantle": 1,
+          "timedOut": 1
+        }
+      },
+      {
+        "red": "normal",
+        "blue": "hard",
+        "seed": 301,
+        "rounds": 14,
+        "profile": "phone",
+        "equalError": true,
+        "winner": {
+          "player": 1,
+          "reason": "score"
+        },
+        "round": 14,
+        "territory": [
+          197,
+          177
+        ],
+        "hp": [
+          6,
+          12
+        ],
+        "outposts": [
+          5,
+          5
+        ],
+        "metrics": {
+          "decisions": 87,
+          "nodes": 159876,
+          "maxDecisionMs": 8003.533945000032,
+          "charge1": 2,
+          "charge2": 0,
+          "charge3": 0,
+          "overload": 2,
+          "shielded": 0,
+          "takeoverStart": 0,
+          "takeoverComplete": 0,
+          "reclaim": 0,
+          "carry": 10,
+          "build": 10,
+          "dismantle": 2,
+          "timedOut": 5
+        }
+      }
+    ],
+    "note": "These earlier completed investigation matches are not final-code strength evidence. Interrupted matches are excluded."
+  }
+}

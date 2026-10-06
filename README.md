@@ -1,6 +1,21 @@
 # 弹射战线 · RICOCHET FRONT
 
-**v0.6.2** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
+**v0.7.0** · 本地双人 PvP ＋ 简单／普通／困难 PvE。手机本地双人热座旋转；人机固定玩家红方视角；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
+
+## 人机对战
+
+主菜单选择「人机对战」→ 难度 → 开始。玩家红方先行，电脑蓝方。快速／标准／长局与原版共用规则；重开和再来一局保留模式、难度及局长，生成新种子。
+
+- 简单：基础局面评价、小束搜索、明显操作误差。
+- 普通：完整局面特征、动态战略、中继搜索、移动／行动顺序比较。
+- 困难：更宽搜索、局部方向／力度优化、独立误差采样及选择性对手回应；保留真实非零操作误差。
+- 电脑每次真实落地或中继后重新规划。搜索只在独立 Web Worker 复制局面上运行；主线程通过原规则／物理引擎执行，所有飞行、携带、蓄能和攻城动画正常播放。
+- 电脑回合关闭玩家行动输入，可观看战场并打开设置。设置／后台暂停新的操作，返回后完整重播 260ms 实际方向提示；重开／返回主菜单清理旧 Worker 和待执行动作。
+- `engine.js`、`physics.js`、`outposts.js`、`claims.js`、`charge.js` 未作规则改动。设计边界见 [PvE 规格](docs/v0.7.0-spec.md)，验证见 [执行记录](docs/v0.7.0-progress.md)。
+
+验收记录见 [V0.7.0 验收矩阵](docs/v0.7.0-acceptance.md)。难度校准使用相同种子、双方换边、统一普通档操作误差和完整搜索预算，覆盖快速／标准／长局；原始数据与样本范围见执行记录。有限样本不代表所有局面下的难度优劣。
+
+开发工具：`npm run ai:lab -- easy normal 3 --equal-error --paired --lengths`；`npm run ai:lab -- normal hard 3 --equal-error --paired --lengths`。每个种子双方换边，三个局长采用完整难度预算，真实执行误差与搜索流独立。仅供开发，不增加玩家 AI vs AI 模式。
 
 ## 当前玩法
 
@@ -34,12 +49,12 @@ Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。检查：`npm test`、`npm r
 - `main.js`：输入、菜单、对局生命周期；`relay-hud.js`：只读取规则状态的进度展示。
 - `renderer.js`／`effects.js`／`visual-changes.js`：Canvas 与真实规则结果动效；`feedback.js`／`audio.js`：因果反馈和音频生命周期。
 
-自动测试覆盖四种配置整局、五种视口 DOM 操作、动态争夺增补／分裂／抢救、保护重叠、所有等级真实落点、致命中止、中继菜单与键盘、低帧率停顿恢复、音频资源上限，以及三种固定模式的受控压力局。v0.6.0 另测动态 HP、过载免疫和恢复、终止型接管／收复、五塔原子替换、成熟范围激活、当前连通块争夺及静态视觉结构。原生 Canvas 检查覆盖 Stable／Unstable／Protected／Pending 和 Normal／Overload／Contested 与减少动效。当前环境缺少 Sites 要求的实时游戏浏览器 QA 技能，iOS／Android 真机触控、帧率与音色仍未验证。
+自动测试覆盖四种配置整局、五种视口 DOM 操作、动态争夺增补／分裂／抢救、保护重叠、所有等级真实落点、致命中止、中继菜单与键盘、低帧率停顿恢复、音频资源上限，以及三种固定模式的受控压力局。v0.6.0 另测动态 HP、过载免疫和恢复、终止型接管／收复、五塔原子替换、成熟范围激活、当前连通块争夺及静态视觉结构。原生 Canvas 检查覆盖 Stable／Unstable／Protected／Pending 和 Normal／Overload／Contested 与减少动效。V0.7.0 完整自动套件 356 项通过，包括真实 Worker 桥接的三种局长整局、结果与再来一局；另外完成 18 场布局／难度／局长流程矩阵。真实 Chrome 已核对电脑飞行、建设、输入锁定和回合交还；iOS／Android 真机触控、帧率与音色仍未验证。
 
 ## 发布
 
 - [在线游戏](https://ricochet-dominion.cianolu.chatgpt.site)
-- [GitHub](https://github.com/cianolu1125/ricochet-dominion)：既有私有仓库、`main`。
+- [GitHub](https://github.com/cianolu1125/ricochet-dominion)：公开仓库、`main`。
 - Sites 与 GitHub 同版源码，分别保留各自提交历史。GitHub 提交不会自动发布 Sites。
 - [v0.6.0 执行记录](docs/v0.6.0-progress.md)。
 
