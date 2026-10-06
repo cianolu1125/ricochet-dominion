@@ -1,0 +1,1026 @@
+RICOCHET FRONT v0.6.2 开发规格
+
+Charge III「Breakthrough / 贯穿攻城」规则重构 + Ultimate FX 终极动效
+
+文档状态：确认版开发规格
+基线版本：v0.6.1
+目标版本：v0.6.2
+开发原则：增量升级，不重写现有系统；规则层为唯一事实来源；视觉层只表现已经确定的规则结果；移动端竖屏优先；保持
+v0.6.1 A · Flux 精修风格。
+
+------------------------------------------------------------------------
+
+0. 本版本一句话目标
+
+把 Charge III 从“更大的 Charge II”升级为真正的终极战略技能：
+
+Charge III 生成完整的 5×5 核心 + 贯穿至地图四边的十字 Attack
+Mask。该范围不受
+Protected、据点或领地状态阻挡；范围内敌方格强制染色、敌方据点全部拆除、敌方先锋固定受到
+1 HP 范围伤害。
+
+同时为 Charge III 建立独立的 Ultimate FX 演出：镜头追弹 → 提前锁定落点 →
+核心爆破 → 镜头骤退至全局 → 强制染色/拆塔冲击波贯穿全图 → 第二伤害波 →
+恢复正常战场。
+
+------------------------------------------------------------------------
+
+1. 开发边界
+
+1.1 本版本必须修改
+
+1.  Charge III 的规则、目标计算、结算顺序。
+2.  Charge III 与 Protected 的关系。
+3.  Charge III 强制染色后据点 influence 的真实损失与后续重新成长。
+4.  Charge III 范围拆塔。
+5.  Charge III 范围先锋 -1 HP。
+6.  Charge III 与现有携带/领地伤害的独立叠加。
+7.  Charge III 独立 Ultimate
+    FX，包括镜头导演、主爆发、全图贯穿波、拆塔同步、第二伤害波。
+8.  对应音效、Hit Stop、震动、Reduce Motion。
+9.  自动化规则测试、视觉/交互回归测试。
+10. 版本号、CHANGELOG、相关文档。
+
+1.2 本版本不要顺带修改
+
+除非为实现本规格所必需，不改变以下系统：
+
+-   Charge 0 / Charge I 的既有面积规则。
+-   Charge II 的现有“十字遇 Protected 停止”规则。
+-   普通飞弹、普通 Blast、普通 Crosscut 的规则。
+-   Relay 获得方式与 1 / 3 / 5 Relay 对应 Charge I / II / III 的门槛。
+-   同一飞弹不能重复使用同一据点 Relay。
+-   Relay 触发己方据点 Overload / Shielded 的现有逻辑。
+-   HP 初始值、回合数、60%领地胜利、最终 Tie-break。
+-   Build / Redeploy +1 HP。
+-   Take Over / Reclaim / Restore 的既有规则。
+-   v0.6.1 的 Stable / Protected / Unstable / Pending / Overload /
+    Contested 基础视觉语言。
+-   手机热座 180° 旋转规则。
+-   普通格子保持安静，不新增常驻扫描、呼吸、粒子或渐变动画。
+
+不要为了 Charge III 重写整个战斗引擎，也不要把 Charge III
+的特殊规则扩散成普通 Crosscut 的通用行为。
+
+------------------------------------------------------------------------
+
+2. Charge 等级定位
+
+本版本应让三个主要 Charge 等级形成清晰、可理解、可平衡的能力梯度。
+
+Charge I — Expansion / 扩张
+
+保持现有规则。核心价值是面积扩张。
+
+Charge II — Cut / 切割
+
+保持现有规则。3×3 + 十字切割；十字方向遇到 Protected 时停止，该
+Protected 格不被改变，后方不继续推进。
+
+核心价值： - 切割领地； - 制造断联； - 制造碎片化地图； -
+为携带多段伤害创造地形条件。
+
+Charge III — Breakthrough / 贯穿攻城
+
+新规则。5×5 + 全图十字；任何
+Protected、据点、Stable、Temporary、Unstable、Pending、Overload、Contested
+状态都不能阻止 Attack Mask 的几何延伸。
+
+核心价值： - 强制突破防御； - 破坏据点网络； - 强制改写领地； -
+直接造成战略级基础设施损失； - 对范围内先锋造成一次固定 HP 伤害； -
+作为五 Relay 高风险投入对应的终极回报。
+
+开发时不要把 Charge III 理解为“Charge II
+数值更大”。它是一次规则层级的突破。
+
+------------------------------------------------------------------------
+
+3. Charge III Attack Mask
+
+3.1 几何定义
+
+以最终爆点 cell 为中心，生成：
+
+A. 5×5 核心区域；
+B. 与爆点同行的整条横线，延伸至地图左右边界；
+C. 与爆点同列的整条竖线，延伸至地图上下边界。
+
+三者取并集：
+
+attackMask = core5x5 ∪ fullRow ∪ fullColumn
+
+地图边缘正常裁切。
+
+3.2 Attack Mask 的最高优先级原则
+
+Attack Mask 的生成不读取以下信息：
+
+-   Protected；
+-   protectedBy；
+-   Stable / Temporary / Unstable；
+-   Pending；
+-   据点；
+-   据点状态；
+-   influence；
+-   敌我领地颜色。
+
+也就是说，先生成完整几何 Mask，再处理 Mask 内对象。
+
+禁止出现 Protected => break。
+
+Charge III 与 Charge II 必须在逻辑上明确区分。
+
+推荐实现方式：
+
+-   Charge II 使用现有 blocked cross trace；
+-   Charge III 使用独立的 full / piercing attack mask 生成器。
+
+不要在同一个复杂循环里堆叠大量 if (charge === 3)，以免以后再次把 Charge
+II 与 III 的边界混淆。
+
+------------------------------------------------------------------------
+
+4. Charge III 三个结算层
+
+三个层共享同一个完整 Attack Mask。
+
+4.1 Layer A — Force Paint / 强制染色层
+
+Attack Mask 内的敌方颜色格：
+
+无视 Protected，强制改为攻击方颜色。
+
+Protected 不免疫、不阻挡、不跳过。
+
+Neutral 或己方颜色格按照现有染色语义处理，不需要制造重复状态变化。
+
+关键规则：强制打掉 Influence
+
+如果某个被 Charge III 强制改色的格子原本属于敌方任意据点的
+influenceCells：
+
+-   从所有相关敌方据点的 influenceCells 中移除该格；
+-   清除该格对应的敌方 protection claim；
+-   不允许下一次普通 recompute 因旧 influence 记录而自动恢复保护。
+
+如果该格同时受到敌方 A 塔、B 塔甚至更多据点重叠保护：
+
+必须从所有这些敌方据点的 influence 中移除。
+
+Charge III
+的含义是把这个位置真正从敌方据点网络中“打掉”，不是只改变表面颜色。
+
+4.2 Layer B — Demolition / 拆塔层
+
+如果敌方据点的中心格位于 Attack Mask：
+
+该敌方据点直接 Destroy。
+
+不检查：
+
+-   是否 Protected；
+-   是否被另一座塔保护；
+-   stage；
+-   influence 大小；
+-   Normal / Overloaded 等防御状态；
+-   5×5 还是十字命中；
+-   之前是否已经被别的 Charge III 区域覆盖。
+
+一发 Charge III 可以拆除多个敌方据点。
+
+不设置 1 塔 / 2 塔上限。
+
+友方据点不受 Demolition Layer 伤害。
+
+多塔同时命中
+
+先基于同一 Attack Mask 快照确定全部敌塔目标，再作为同一 Charge III
+因果组进行摧毁。
+
+不要采用： “拆第一塔 → 重算 → 改变 Attack Mask → 再判断第二塔”。
+
+Attack Mask 在本次攻击开始后固定，不因中途地图变化而改变。
+
+4.3 Layer C — Vanguard Damage / 先锋伤害层
+
+如果敌方先锋所在 cell 位于 Attack Mask：
+
+固定 -1 HP。
+
+每发 Charge III 最多触发一次该范围伤害。
+
+即使先锋同时处于： - 5×5； - 横十字； - 竖十字；
+
+也只计算一次 Charge III Blast Damage。
+
+此伤害不检查： - 格子颜色； - Protected； - Stable； - Temporary； -
+Unstable； - Neutral； - 是否站在据点附近。
+
+这是 Charge III 独立的终极技能范围伤害。
+
+------------------------------------------------------------------------
+
+5. HP 伤害允许叠加
+
+Charge III Blast Damage 与现有伤害来源是不同事件，不属于重复计算。
+
+允许同一发高水平 Charge III 中出现：
+
+1.  携带过程中穿越合法敌方 Stable / Protected 领地造成的既有伤害；
+2.  Charge III Attack Mask 命中先锋造成的 -1 HP；
+3.  最终落点按照现有规则成立的合法伤害。
+
+每个来源独立判断、独立记账。
+
+不要为了限制 Charge III
+人工添加“本次攻击已经扣过血，所以其他伤害失效”的总锁。
+
+自然制衡
+
+如果攻击方为了完成 5 Relay 导致自己的据点全部
+Overload，那么这些据点不再提供 Stable Root /
+Protected，相关己方领地可能变为 Temporary，因此原本依赖 Stable /
+Protected 的携带穿越伤害自然无法继续成立。
+
+这是现有系统产生的自然制衡，不需要额外写特殊削弱规则。
+
+------------------------------------------------------------------------
+
+6. Influence、Protected 与后续成长
+
+Charge III 强制染色之后，存活敌塔可能形成缺口、不规则 influence、L
+形、断层或被削边。
+
+这是合法状态。
+
+例如成熟 5×5 据点被 Charge III 横向切掉一排，但塔中心没有被 Attack Mask
+命中：
+
+-   据点实体继续存在；
+-   stage 不降级；
+-   被打掉的一排不再属于 influence；
+-   该排不再 Protected；
+-   不立即自动恢复；
+-   后续在正常成长阶段按照 v0.6.1 的 frontier recovery
+    规则逐步重新成长。
+
+6.1 禁止立即恢复
+
+Charge III 结束后的 recompute 只重算当前真实状态。
+
+它不能： - 按 stage 自动补满 3×3 / 5×5； - 把刚被 Charge III
+强制染色的格子立即变回原色； - 因据点仍然 stage 2 就直接恢复完整 5×5
+influence。
+
+6.2 后续恢复
+
+从下一次合法 Growth Phase 开始：
+
+-   存活据点可以向 maxPotentialRange 重新成长；
+-   使用现有 frontier recovery；
+-   一次只恢复合法的一层 frontier；
+-   不瞬间填满所有缺口；
+-   后续普通成长仍遵守普通规则，包括敌方 Protected 等普通阻挡关系。
+
+Charge III 的“无视防御”只属于 Charge III
+本次攻击，不永久改变普通成长规则。
+
+------------------------------------------------------------------------
+
+7. 推荐的规则结算顺序
+
+为了保证规则确定、动画可解释、测试稳定，建议一次 Charge III
+使用以下原子流程：
+
+1.  飞弹物理阶段结束，确定最终爆点。
+2.  生成并冻结本次 attackMask。
+3.  快照本次命中的：
+    -   forcePaintCells；
+    -   enemyTowerTargets；
+    -   enemyVanguardHit；
+    -   需要移除的 enemy influence claims。
+4.  处理本次 Attack Mask 对敌方 influence 的强制清除。
+5.  对 forcePaintCells 执行强制染色。
+6.  对全部 enemyTowerTargets 执行同一因果组的 Destroy。
+7.  对敌方先锋执行一次 Charge III Blast Damage（如命中）。
+8.  执行现有合法的其他伤害/落点判定，保持既有规则顺序。
+9.  统一 recompute：
+    -   protectedBy；
+    -   stability；
+    -   connectivity；
+    -   claims；
+    -   tower influence reconciliation。
+10. 执行现有胜负检查。
+11. 视觉层完整播放 Charge III Ultimate FX。
+12. 若已经产生 Match Complete，终局 UI 在关键 Charge III
+    演出完成后出现，不要在核爆刚发生时立刻用结果面板遮住战场。
+
+如果现有引擎的步骤 4–8
+因内部架构需要稍作顺序调整，可以调整实现细节，但必须满足以下外部不变量：
+
+-   Attack Mask 固定；
+-   Protected 不能阻挡任何 Charge III 层；
+-   所有范围内敌塔必拆；
+-   范围内敌先锋只获得一次 Charge III 固定伤害；
+-   强制染色真实打掉敌方 influence；
+-   同一攻击中其他合法伤害仍可独立成立；
+-   结算结果与动画播放顺序分离，视觉不能反向决定规则。
+
+------------------------------------------------------------------------
+
+8. Charge III Ultimate FX 总体导演
+
+Charge III 是当前游戏最高规格的单次技能演出。
+
+设计关键词：
+
+压缩 → 锁定 → 爆发 → 全图贯穿 → 二次冲击 → 安静。
+
+震撼感优先来自： - 镜头； - 尺度； - 节奏； - 明暗反差； -
+战场结构被真实改变； - 沿波前逐个发生的因果反馈。
+
+不要主要依靠满屏粒子、持续高亮、长时间抖屏。
+
+v0.6.1 A · Flux 平时保持克制，正因为平时安静，Charge III
+才应该显得异常巨大。
+
+------------------------------------------------------------------------
+
+9. Ultimate FX 时间轴
+
+建议总时长约 2.4–3.2
+秒。正式实现可以根据真机手感微调，但保持以下阶段关系。
+
+Phase 1 — Missile Chase / 追弹
+
+建议：0–900ms 左右。
+
+-   飞弹发射后，镜头开始跟随。
+-   战场从正常视野缓慢放大至约 1.25–1.40×。
+-   镜头不是死锁飞弹中心。
+-   前半段跟随飞弹；
+-   后半段逐渐向预测落点领先。
+-   飞弹接近终点前，玩家视野已经接近最终爆点。
+
+目标感觉： “镜头知道这一炮要去哪里，并把玩家提前带过去。”
+
+不要产生晕动感： - 使用平滑 ease-out； - 不做高频左右摇摆； -
+反弹时镜头不需要逐像素复制飞弹的每个小变化； -
+镜头追踪是导演视角，不是摄像机绑在飞弹上。
+
+Phase 2 — Target Lock / 核心锁定
+
+建议：约 180–260ms。
+
+-   镜头最终锁到爆点；
+-   再快速放大到约 1.55–1.75×；
+-   飞弹进入核心；
+-   能量向中心压缩；
+-   中心从队伍色迅速收束为接近白色的高亮核；
+-   环境亮度短暂压暗，核心相对更亮。
+
+爆炸前加入约 40–60ms 的短 Hit Stop。
+
+这里的停顿必须短。 目的是制造“压缩”，不是让游戏显得卡住。
+
+Phase 3 — Primary Detonation / 主爆发
+
+建议：约 120–180ms。
+
+爆点产生： - 白核闪光； - 队伍色冲击环； - 一次极短的全屏曝光； -
+一次主要屏幕震动。
+
+镜头同时快速从近景拉回全局，建议落到约
+0.92–0.96×，让玩家能够看到十字真正贯穿整张地图。
+
+镜头“骤退”应该是 Charge III 最重要的视觉瞬间之一。
+
+Phase 4 — PURGE WAVE / 强制染色 + 拆塔波
+
+建议：约 450–700ms。
+
+第一轮大波同时承担： - Force Paint； - Influence Break； - Demolition。
+
+视觉上不要整条十字瞬间完成。
+
+以爆点为中心： - 5×5 核心首先爆开； -
+横向与纵向波前高速向四个地图边缘推进； - 波前到达 cell 时，该 cell
+执行强制翻色表现； - Protected
+内框在被强制突破时被波前“切断/冲散”，随后消失； - 被打掉 influence
+的结构线随波前失效； - 敌塔在波前到达塔中心的瞬间执行 Siege /
+Destroy； - 多座塔沿传播路径依次爆碎。
+
+规则可以在引擎中一次性完成，但视觉必须按空间距离延迟表现。
+
+视觉延迟不得改变规则结果。
+
+建议： visualDelay = distanceFromImpact / maxDistance * waveDuration
+
+这样同一 Attack Mask 中： - 近处先发生； - 远处后发生； -
+玩家能看懂“贯穿”而不是只看到结果闪一下。
+
+Phase 5 — DAMAGE WAVE / 第二伤害波
+
+建议：约 250–400ms。
+
+第一轮 PURGE WAVE 基本到达地图边缘后，出现第二轮更轻、更锐利的冲击波。
+
+它不是第二次同等级大爆炸。
+
+它的任务是明确表达： 先锋范围伤害结算。
+
+表现： - 从爆点再发出一次较薄的白色/队伍色冲击； - 如果敌先锋在 Attack
+Mask 内，波到达先锋位置时： - 角色短促高亮； - 一次震荡环； - −1 HP
+浮字； - 轻量独立伤害反馈。 -
+若没有命中先锋，第二波仍可轻量扫过，但不要制造虚假的伤害反馈。
+
+Phase 6 — Settle / 回归战场
+
+建议：200–300ms。
+
+-   镜头从略微缩小的全局视野平滑恢复正常 1×；
+-   震动完全结束；
+-   曝光恢复；
+-   粒子迅速清理；
+-   战场停留在真实新状态；
+-   若游戏结束，再进入 Match Complete。
+
+结束后应产生短暂的“安静”，不要立刻追加无关装饰动画。
+
+------------------------------------------------------------------------
+
+10. 两次爆发，而不是三次完整爆炸
+
+正式推荐采用“两次波”。
+
+第一波： PURGE WAVE = 染色 + Influence Break + 拆塔。
+
+第二波： DAMAGE WAVE = Vanguard -1 HP。
+
+原因： - 三次完整爆炸容易拖长技能； -
+染色与拆塔在规则上都属于战场结构破坏，视觉上合并更自然； -
+第二次专门给角色伤害，可以让玩家清楚理解 HP 为什么下降； -
+两次波形成“战略破坏 → 生物/角色冲击”的节奏层级。
+
+不要把两次波做成两个同样大小、同样响度的爆炸。
+第一波最大；第二波更锐、更短。
+
+------------------------------------------------------------------------
+
+11. 镜头系统实现要求
+
+当前 renderer 已有 viewport / shake / rotation 体系。Charge III
+镜头应优先接入现有 View/Renderer，不要通过 CSS transform 整个 DOM 页面。
+
+建议增加独立的 camera cue / cinematic state，例如：
+
+-   mode: charge3Ultimate
+-   born
+-   impact
+-   target
+-   missilePosition
+-   zoom
+-   focus
+-   phase
+-   duration
+
+Renderer 最终视图由： 基础 viewport + hot-seat rotation + cinematic
+camera + shake 组合得到。
+
+必须保证：
+
+1.  手机 180° 热座旋转后，镜头坐标仍以当前正确战场坐标工作。
+2.  HUD 不跟随战场镜头放大。
+3.  Relay HUD、底部 Toolbar、结束回合等界面保持屏幕空间。
+4.  Charge III 演出期间禁用新的战场输入。
+5.  动画结束后精确恢复原 viewport，不产生累计缩放误差。
+6.  窗口 resize / orientation change 不导致镜头卡死。
+7.  Match Complete 不提前遮挡 Ultimate FX。
+
+------------------------------------------------------------------------
+
+12. 视觉语言
+
+继续使用 v0.6.1 A · Flux：
+
+-   暗色战场；
+-   低饱和红/蓝；
+-   几何线条；
+-   克制 Glow；
+-   基础格安静；
+-   关键事件高对比；
+-   不使用卡通火焰云；
+-   不使用大量随机烟雾；
+-   不使用持续满屏粒子。
+
+Charge III 可以暂时突破日常亮度预算，但只在爆发的数百毫秒内。
+
+推荐视觉层
+
+主爆发： - 白核； - 队伍色外环； - 极短曝光。
+
+PURGE WAVE： - 队伍色主波前； - 薄白色高能边； - 格子翻色； - Protected
+内框被切断； - 据点碎裂。
+
+DAMAGE WAVE： - 更薄的白/队伍色冲击线； - 先锋震荡环； - −1 HP。
+
+------------------------------------------------------------------------
+
+13. 据点拆除表现
+
+复用并升级现有 siege / destroy 语言，不需要重新发明完全不同的塔美术。
+
+Charge III 命中塔时：
+
+1.  波前到达塔中心；
+2.  塔核心短暂白亮；
+3.  几何结构产生裂纹/断线；
+4.  约 6–10 个受预算限制的碎片向外+下落；
+5.  一个较短的队伍色破坏环；
+6.  塔消失；
+7.  对应 Protected / influence 视觉跟随规则结果退去。
+
+多塔同时被命中时： - 不为每座塔播放完整屏幕震动； -
+不为每座塔单独播放一套高音量音效； - 每座塔保留局部碎裂； -
+全局震动与主音效按同一 Charge III 因果组聚合。
+
+这样既有“沿路逐塔爆破”的爽感，又不会声音/震动过载。
+
+------------------------------------------------------------------------
+
+14. 格子翻色表现
+
+Charge III 的格子强制改写应比普通 Convert 更有力量，但仍使用现有 Canvas
+语言。
+
+推荐： - 波前到达前：原状态保持； - 到达瞬间：cell 轻微抬起或亮边； -
+40–90ms 内落下并显示新颜色； - Protected 内框在同一瞬间断开/淡出； -
+不做每格独立计时器； - 所有延迟由一个全局时间 + distance 计算。
+
+禁止： - 为几十/上百个 cell 创建 DOM； - 每格一个 setTimeout； -
+每格一个 rAF； - 大量 Canvas shadowBlur。
+
+------------------------------------------------------------------------
+
+15. 音效设计
+
+使用现有 Web Audio 合成体系与 voice budget。
+
+Charge III 建议形成一个连续因果音景：
+
+A. 追弹： - 低频逐渐上升的能量/空气声； - 不要持续刺耳。
+
+B. 锁定： - 短促收束音； - 爆炸前瞬间抽空高频，制造“吸入感”。
+
+C. 主爆发： - 一次最强低频冲击； - 一次短金属/能量 crack； -
+不连续播放多份主爆音。
+
+D. PURGE WAVE： - 一条快速向外扫的高频能量尾； - 多塔碎裂只加入轻量局部
+crack，不叠加多个低频爆炸。
+
+E. DAMAGE WAVE： - 第二次更短、更锐的冲击； -
+命中先锋沿用伤害音色，但降低与主爆发冲突。
+
+全局仍遵守： - 同一因果组聚合； - 约 8 active voices 上限； - compressor
+/ limiter； - 不允许 4 座塔同时产生 4 次全音量爆炸。
+
+------------------------------------------------------------------------
+
+16. Hit Stop 与震动
+
+推荐：
+
+锁定结束： - 40–60ms Hit Stop。
+
+主爆发： - Charge III 专属最高等级但短时震动； - 强度高于普通 Siege； -
+约 140–180ms 内快速衰减。
+
+多塔拆除： - 局部视觉反馈； - 不反复重置成满强度全屏震动。
+
+先锋伤害： - 可以追加一个较小冲击； - 不覆盖主爆发的整体 envelope。
+
+不要让整段 2–3 秒都在抖。
+
+------------------------------------------------------------------------
+
+17. Reduce Motion
+
+Reduce Motion 必须保留规则完整性，只降低镜头与动态负担。
+
+建议：
+
+-   不进行长距离镜头追弹；
+-   不使用 1.7× 大幅 zoom；
+-   使用短暂 1.05–1.10× 聚焦或直接保持全局；
+-   主爆发保留短白核/环；
+-   PURGE WAVE 改为较快的线性扫过或 200–300ms 分段显现；
+-   第二伤害波简化为先锋震荡环 + −1 HP；
+-   不做屏幕震动或 Hit Stop；
+-   塔仍显示简化碎裂/消失；
+-   所有规则结果完全一致。
+
+Reduce Motion 只能改变表现，不能改变结算时间或规则。
+
+------------------------------------------------------------------------
+
+18. 性能预算
+
+移动端优先。
+
+目标： - 正常 iPhone 级移动设备演出期间尽量保持流畅； - 不因一次 Charge
+III 创建大量 DOM； - 不因十字全图产生几十个独立动画对象。
+
+实现建议：
+
+1.  Attack Mask 使用 Set / Typed Array 或现有 cell index 集合。
+2.  波前通过 distanceFromImpact 在单个 render loop 中计算。
+3.  塔碎片总量设全局预算。
+4.  粒子总量设全局预算。
+5.  所有大面积效果 Canvas-first。
+6.  避免全屏高成本 blur。
+7.  高 DPR 设备控制 shadow / composite 次数。
+8.  动画结束立即释放 cinematic/effect 状态。
+9.  不让 seen、effect queue 或 particle list 无界增长。
+
+------------------------------------------------------------------------
+
+19. 建议代码职责
+
+具体文件以当前源码为准，优先沿现有架构扩展。
+
+src/charge.js
+
+-   明确 Charge III Attack Mask 生成。
+-   与 Charge II blocked cross 分离。
+-   提供可测试的纯函数。
+
+建议接口思想： charge3AttackMask(state, impactCell) -> Set<cellIndex>
+
+src/engine.js
+
+-   Charge III 原子结算。
+-   Force Paint。
+-   Influence claim removal。
+-   范围塔目标快照。
+-   Vanguard damage。
+-   recompute。
+-   胜负判定。
+
+src/outposts.js
+
+-   从所有敌方塔 influence 中移除被强制突破 cell。
+-   多塔重叠 influence 清除。
+-   被打缺口后的 frontier recovery。
+-   Charge III Destroy 与现有 Destroy/Siege 生命周期兼容。
+
+src/renderer.js
+
+-   Cinematic camera 参数应用。
+-   PURGE WAVE。
+-   5×5 + 十字空间推进。
+-   Protected break visual。
+-   与 hot-seat rotation 正确组合。
+
+src/effects.js
+
+-   新 Charge III 专属 effect。
+-   主爆发。
+-   塔局部碎裂。
+-   Damage Wave。
+-   粒子预算。
+
+src/feedback.js
+
+-   Charge III 事件优先级最高级别之一。
+-   Hit Stop。
+-   全局震动 envelope。
+-   因果组聚合。
+-   Reduce Motion。
+
+src/audio.js
+
+-   Charge III 专属合成音景。
+-   继续遵守 voice budget / limiter。
+
+src/view.js
+
+如现有 viewport 架构适合： - 增加 cinematic camera interpolation； -
+保证正常 viewport 恢复。
+
+不要让规则代码依赖 renderer，也不要让 renderer
+根据颜色自行猜测“这格是不是被 Charge III 打掉 influence”。
+
+------------------------------------------------------------------------
+
+20. 事件数据建议
+
+推荐产生一个高层 Charge III
+事件，而不是让视觉层从几十个普通事件猜测发生了什么。
+
+例如概念结构：
+
+charge3Ultimate = {   eventId,   groupId,   owner,   impact,   attackCells,   paintedCells,   brokenInfluenceCells,   destroyedTowerIds,   vanguardHit,   missilePathOrFinalPath,   born }
+
+视觉层只读取这些已经由规则层确认的结果。
+
+如果现有架构更适合拆事件，也应共享同一个 groupId 和同一个 Charge III
+parent identity。
+
+------------------------------------------------------------------------
+
+21. UI / Effect 编号
+
+现有 01–70 编号保持不变。
+
+如需要新增编号，从 71 开始追加，不重新编号旧项目。
+
+建议：
+
+71. Charge III Cinematic Camera / 终极镜头
+72. Charge III Core Detonation / 核心爆破
+73. Charge III Purge Wave / 强制染色与拆塔波
+74. Charge III Protected Break / 保护结构突破
+75. Charge III Damage Wave / 第二伤害波
+
+现有： - 46 Blast； - 47 Crosscut； - 49 Damage； - 54 Destroy； - 55
+Siege； - 65 Hit Stop； - 66 Shake；
+
+继续复用其基础视觉语言，71–75 表示 Charge III
+的组合导演层，不需要复制已有底层效果代码。
+
+------------------------------------------------------------------------
+
+22. 规则自动化测试
+
+以下必须新增回归测试。
+
+Attack Mask
+
+1.  中心位置得到完整 5×5 + full row + full column。
+2.  地图边缘正确裁切。
+3.  Protected 不截断横向。
+4.  Protected 不截断纵向。
+5.  多个连续 Protected 仍不截断。
+6.  敌塔不截断。
+7.  Overloaded / Contested 等状态不截断。
+
+Force Paint
+
+8.  普通敌格强制改色。
+9.  enemy Protected 强制改色。
+10. enemy Stable Protected 强制改色。
+11. Temporary 强制改色。
+12. Pending 范围内按最终规则状态正确重算。
+13. 自己颜色不产生错误重复 claim。
+14. Neutral 按既有染色规则处理。
+
+Influence
+
+15. 被强制染色格从单塔 influence 移除。
+16. 重叠双塔保护格从两塔 influence 同时移除。
+17. 三塔重叠同理。
+18. stage 不因局部 influence 损失自动下降。
+19. recompute 后不会立即恢复刚被打掉的 influence。
+20. 下一合法 Growth Phase 可按 frontier 恢复。
+21. 一次 Growth 不瞬间补满全部缺口。
+22. 不规则 L 形/洞状 influence 正常存在。
+
+Demolition
+
+23. 5×5 内敌塔被拆。
+24. 横十字远端敌塔被拆。
+25. 竖十字远端敌塔被拆。
+26. Protected 敌塔仍被拆。
+27. 被另一敌塔保护的塔仍被拆。
+28. 一发可拆 2 塔。
+29. 一发可拆 3+ 塔。
+30. 友方塔不被拆。
+31. 多塔目标基于同一 Attack Mask，不因先拆某塔而漏判后塔。
+
+Vanguard Damage
+
+32. 范围内先锋 -1。
+33. Protected 格上的先锋仍 -1。
+34. 5×5 与十字重叠只 -1 一次 Charge III damage。
+35. 范围外不扣 Charge III damage。
+
+Damage Stacking
+
+36. Carry traversal + Charge III damage 可叠加。
+37. Charge III damage + 合法 final damage 可叠加。
+38. 三种来源同时合法时分别记账。
+39. 自己全部塔 Overload 导致区域不再 Stable 时，不错误制造 traversal
+    damage。
+
+Victory
+
+40. Charge III 强制染色达到 60% 时胜负正确。
+41. Charge III 直接把敌方 HP 打到 0 时立即产生正确胜负状态。
+42. 同一 Charge III 同时触发多个胜利条件时遵守现有胜负优先级。
+43. Match Complete UI 不提前遮挡关键 Ultimate FX。
+
+------------------------------------------------------------------------
+
+23. 视觉验收
+
+必须在至少以下场景人工检查：
+
+1.  手机竖屏正常朝向。
+2.  手机竖屏 180° 热座反向。
+3.  爆点在地图中心。
+4.  爆点靠近边缘。
+5.  一发无塔命中。
+6.  一发命中 1 塔。
+7.  一发命中 3+ 塔。
+8.  大量 Protected 被强制突破。
+9.  敌先锋命中。
+10. 敌先锋未命中。
+11. 同时发生拆塔 + 先锋伤害。
+12. Reduce Motion。
+13. 低性能/高 DPR 模拟。
+
+视觉验收标准：
+
+-   玩家能够明显感觉 Charge III 是终极技能，而不是普通 Crosscut 放大版。
+-   镜头追弹平滑，不晕、不抖、不丢目标。
+-   镜头在飞弹落点前略微领先并锁定。
+-   核心爆破前有清晰压缩感。
+-   主爆发后镜头快速拉回，能看到整张地图。
+-   十字波前明确从爆点向四边推进。
+-   Protected 被“强制突破”，而不是像 Charge II 一样阻挡。
+-   塔在波前到达时依次爆碎。
+-   多塔爆炸不造成音效/震动叠加失控。
+-   第二 Damage Wave 与第一 Purge Wave 容易区分。
+-   −1 HP 清楚但不遮挡战场。
+-   最终战场状态清楚可读。
+-   动画结束后无残留 zoom / shake / overlay。
+-   普通回合的 A · Flux 克制风格不被破坏。
+
+------------------------------------------------------------------------
+
+24. 交互验收
+
+Charge III Ultimate FX 播放期间：
+
+-   不接受新的移动/行动输入；
+-   不允许重复结束回合；
+-   不允许再次拖拽飞弹；
+-   设置/系统级必要按钮按现有策略处理；
+-   动画结束后恢复正常输入或进入 Match Complete；
+-   不出现因为连续点击导致的重复结算；
+-   规则结算只执行一次；
+-   视觉重播不得再次修改游戏状态。
+
+------------------------------------------------------------------------
+
+25. 音频验收
+
+-   主爆发只有一个主低频冲击。
+-   多塔拆除不会产生 N 个重叠主爆炸。
+-   第二伤害波音色与第一波可区分。
+-   音量不会明显削波。
+-   mute / sound setting 正常。
+-   iOS 首次音频授权逻辑保持现有行为。
+-   Reduce Motion 不强制关闭声音，但不产生额外震动。
+-   同一因果组音效可被 FeedbackDirector 正确合并。
+
+------------------------------------------------------------------------
+
+26. 性能验收
+
+-   Charge III 不创建每格 DOM。
+-   Charge III 不创建每格独立 timer/rAF。
+-   一次全图十字不导致 effect list 无界增长。
+-   多塔碎片受全局预算控制。
+-   动画结束后 effect/camera state 可回收。
+-   连续测试多次 Charge III 后帧率与内存没有持续恶化。
+-   普通回合性能不因 Charge III 新系统下降。
+
+------------------------------------------------------------------------
+
+27. 兼容与回归
+
+必须确认 v0.6.1 以下功能没有被破坏：
+
+-   普通移动；
+-   普通飞弹；
+-   捕获；
+-   再发射；
+-   携带；
+-   反弹；
+-   Charge I；
+-   Charge II Protected stop；
+-   Build；
+-   Redeploy；
+-   Dismantle；
+-   Overload；
+-   Shielded；
+-   Take Over；
+-   Reclaim；
+-   Restore；
+-   Growth；
+-   Stable / Temporary；
+-   Pending；
+-   60%胜利；
+-   HP胜利；
+-   回合上限；
+-   手机180°；
+-   Relay HUD；
+-   opponent HP popup；
+-   中英文；
+-   Reduce Motion；
+-   声音开关。
+
+特别注意： Charge III 的 piercing 逻辑绝不能误改 Charge II。
+
+------------------------------------------------------------------------
+
+28. 不允许的实现
+
+以下视为规格错误：
+
+1.  Charge III 十字遇 Protected 停止。
+2.  Charge III Protected 格不染色。
+3.  Charge III 只拆直接碰撞的塔。
+4.  Charge III 一发只能拆一塔。
+5.  Charge III 范围内塔因为 Protected 而免疫。
+6.  Charge III 范围内先锋因为站在 Protected 而免伤。
+7.  先锋同时在5×5与十字被扣两次 Charge III 范围伤害。
+8.  强制染色后旧 influence 仍保留并在 recompute 自动恢复。
+9.  为每个格子建立 DOM/timer。
+10. 为每座被拆塔播放完整全屏震动与主爆音。
+11. Ultimate FX 反向决定规则结果。
+12. 为实现 Charge III 修改 Charge II 为穿透。
+13. 终局面板在主爆发前覆盖战场。
+14. Reduce Motion 改变游戏规则。
+15. 动画播放两次导致规则结算两次。
+
+------------------------------------------------------------------------
+
+29. 遇到未覆盖问题时的判断顺序
+
+开发过程中遇到本规格未逐项描述的边缘问题，按以下优先级判断：
+
+1.  规则层是唯一事实来源。
+2.  Charge III Attack Mask 是完整 5×5 + full cross，不受任何防御阻挡。
+3.  Charge III 的核心身份是“强制突破”，不要重新引入 Protected 例外。
+4.  Force Paint 必须真实破坏 enemy influence，而不是只换颜色。
+5.  范围敌塔全部 Destroy。
+6.  Vanguard Charge III damage 每发最多一次，但其他独立伤害允许叠加。
+7.  Charge III 结束后普通系统恢复普通规则。
+8.  v0.6.1 的真实 influence / frontier recovery 继续作为后续恢复基础。
+9.  视觉必须解释规则，而不是创造新的规则。
+10. 镜头与特效优先服务“读懂因果 + 终极感”，不是堆复杂度。
+11. 手机可读性与性能优先于额外装饰。
+12. 如果两个视觉方案效果接近，选择更稳定、更清楚、更少持续开销的方案。
+13. 不确定时优先保持现有 v0.6.1 行为，不顺手改变无关系统。
+
+------------------------------------------------------------------------
+
+30. Definition of Done
+
+v0.6.2 只有同时满足以下条件才算完成：
+
+-   Charge III 新规则全部实现。
+-   Protected 对 Charge III 三层均无阻挡/免疫效果。
+-   强制染色正确破坏敌方 influence。
+-   存活塔可在未来正常逐层恢复，而不是立即恢复。
+-   范围内全部敌塔正确拆除。
+-   范围先锋固定 -1，且每发只一次。
+-   独立伤害来源正确叠加。
+-   Charge II 仍保持 Protected stop。
+-   Ultimate FX 完整实现：追弹、锁定、主爆、全局骤退、Purge
+    Wave、逐塔爆破、Damage Wave、恢复。
+-   Reduce Motion 完整。
+-   音效/震动聚合正常。
+-   自动化新增测试全部通过。
+-   v0.6.1 原有测试全部通过。
+-   手机正向/180°/Reduce Motion 人工视觉验收通过。
+-   无明显性能回退。
+-   版本号更新为 0.6.2。
+-   CHANGELOG / README / 开发文档同步。
+-   发布前 production build 通过。
+-   最终部署版本与 GitHub main 源码一致。
+
+------------------------------------------------------------------------
+
+31. 最终开发意图
+
+v0.6.2 不追求把整个游戏变得更吵、更炫。
+
+它要建立清楚的层级：
+
+平时克制，Charge I 扩张，Charge II 切割，Charge III 打破规则。
+
+Charge III 应该让玩家在五次 Relay
+完成后真正获得“终极武器已经上线”的感觉；同时，它的强度不是无条件赠送，而是建立在五塔基础设施、Relay
+路径规划、己方 Overload 风险和战场位置判断之上。
+
+最终体验应该是：
+
+飞弹被释放 → 镜头开始追随 → 视野提前锁定落点 → 能量极度压缩 → 核心爆破 →
+镜头瞬间退回全局 → 5×5 与十字以不可阻挡的波前贯穿战场 → Protected
+被强制击穿 → 沿途敌塔逐座崩毁 → 第二冲击波命中先锋并显示 −1 HP →
+战场重新安静下来，留下真实、永久的战略后果。
+
+这就是 v0.6.2 Charge III 的设计基准。
