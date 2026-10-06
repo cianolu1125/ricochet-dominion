@@ -60,5 +60,16 @@ export function evaluate(s,perspective,strategy={weights:{}},difficulty='normal'
   }
   const thresholdBonus=x=>x>=.6?25:x>=.55?3:0;
   score+=thresholdBonus(p.territory)-thresholdBonus(p.foe.territory);
+  // In the final two rounds, the score rule is lexicographic: one cell
+  // outweighs every nonfatal HP/tower advantage. Keep kill/loss terminals
+  // above this bounded utility and let response search recognize lethal risk.
+  if(difficulty==='hard'&&p.roundsRemaining<=1) {
+    const foe=E.enemy(perspective),hpRange=2*Math.max(s.players[1].maxHp,s.players[2].maxHp)+1;
+    const counts=E.counts(s),area=counts[perspective]-counts[foe];
+    const hp=s.players[perspective].hp-s.players[foe].hp;
+    const towers=s.towers.filter(t=>t.owner===perspective).length-s.towers.filter(t=>t.owner===foe).length;
+    score=50*(area+hp/hpRange+towers/(hpRange*11))/s.cells.length;
+    breakdown.closingScore=score;
+  }
   return {score,breakdown,analysis:p};
 }
