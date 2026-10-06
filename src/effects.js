@@ -1,4 +1,5 @@
 import {regionContours} from "./region-outline.js";
+import {drawUltimate} from './ultimate.js';
 import { chargeSpec, effectDuration } from "./feedback.js";
 // One Canvas pass, at most 180 transient particle primitives; no per-particle timers.
 export function drawEffects(
@@ -37,7 +38,9 @@ export function drawEffects(
     const p = pt(e),
       color = team[e.owner] || team[1];
     ctx.save();
-    if(strategic) {
+    if(e.type==='charge3Ultimate') {
+      drawUltimate(ctx,e,time,pt,team,reduced,rotation);
+    } else if(strategic) {
       const complete=e.type==='takeoverComplete', restarting=['reclaim','restore','reconnect'].includes(e.type);
       if(reduced) {
         // Short stationary structure/color switch, without propagation or core motion.

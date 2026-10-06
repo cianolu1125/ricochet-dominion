@@ -3,6 +3,7 @@ export const chargeFromRelays = (count) =>
   count >= 5 ? 3 : count >= 3 ? 2 : count >= 1 ? 1 : 0;
 export const chargeRadius = (level) => (level === 1 || level === 3 ? 2 : 1);
 export function paintTargets(state, position, level) {
+  if (level === 3) return charge3AttackMask(state, position);
   const center = grid(state, position),
     radius = chargeRadius(level),
     targets = new Set();
@@ -11,6 +12,16 @@ export function paintTargets(state, position, level) {
       if (inside(state, { x, y })) targets.add(index(state, { x, y }));
   if (level >= 2)
     for (const i of crossTrace(state, position).targets) targets.add(i);
+  return targets;
+}
+// Geometry only: no protection, outpost or ownership reads.
+export function charge3AttackMask(state, position) {
+  const center = grid(state, position), targets = new Set();
+  for (let y = Math.max(0, center.y - 2); y <= Math.min(state.height - 1, center.y + 2); y++)
+    for (let x = Math.max(0, center.x - 2); x <= Math.min(state.width - 1, center.x + 2); x++)
+      targets.add(index(state, {x, y}));
+  for (let x = 0; x < state.width; x++) targets.add(index(state, {x, y: center.y}));
+  for (let y = 0; y < state.height; y++) targets.add(index(state, {x: center.x, y}));
   return targets;
 }
 // Four independent rays; a protected tile blocks its ray before painting.

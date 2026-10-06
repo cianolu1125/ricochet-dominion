@@ -1,7 +1,7 @@
 import { activeTower, recoverExpiredOverloads, resolveDueTakeovers, reconcileTowerInfluence } from "./outposts.js";
 export { reconcileTowerInfluence, activeTower, applyRelayOverload, hasExternalFriendlyProtection, getTakeoverCandidates, getReclaimCandidates, getRedeployableOwnedTowers, outpostAction, startTakeover, reclaimTower } from "./outposts.js";
 import { refreshClaims } from "./claims.js";
-import { paintTargets, crossTrace } from "./charge.js";
+import { paintTargets, crossTrace, charge3AttackMask } from "./charge.js";
 import { fact, feedbackId } from "./feedback-events.js";
 import { CONFIG, NAMES, PROFILES } from "./config.js";
 export const enemy = (p) => 3 - p;
@@ -331,12 +331,13 @@ export function win(s, player, reason) {
   for (const t of s.towers) t.relayUsed = false;
   log(s, player ? `${NAMES[player]}获胜` : "双方平局");
 }
-export function damage(s, owner) {
+export function damage(s, owner, source = "territory") {
   if (s.winner) return false;
   s.players[owner].hp--;
   const p = s.players[owner];
   fact(s, {
     type: "damage",
+    source,
     owner,
     ...(s.feedbackPosition ||
       p.world || { x: p.pos.x + 0.5, y: p.pos.y + 0.5 }),
@@ -393,6 +394,7 @@ export function explode(s, owner, p, radius = 1) {
 }
 export function paintMissile(s, owner, position, level) {
   if (s.winner) return;
+  if (level === 3) return resolveCharge3(s, owner, position);
   const cross = level >= 2 ? crossTrace(s, position) : null;
   const targets = paintTargets(s, position, level),
     shielded = cross ? [...cross.shielded] : [];
@@ -417,9 +419,40 @@ export function paintMissile(s, owner, position, level) {
     });
   }
 }
+// One immutable attack mask and one causal event. Visual order never affects rules.
+function resolveCharge3(s, owner, position) {
+  const center = grid(s, position), mask = charge3AttackMask(s, position);
+  const attackCells = [...mask], paintedCells = attackCells.filter(i => s.cells[i] !== owner);
+  const brokenProtectedCells=attackCells.filter(i=>protectedOwner(s,i)===enemy(owner));
+  const targets = s.towers.filter(t => t.owner !== owner && mask.has(index(s, t.pos)));
+  const destroyedTowers = structuredClone(targets);
+  const targetOwner = enemy(owner), vanguardPosition = {...s.players[targetOwner].pos};
+  const vanguardHit = mask.has(index(s, vanguardPosition));
+  const brokenInfluenceCells = new Set();
+  for (const t of s.towers.filter(t => t.owner !== owner)) {
+    const before = towerInfluence(s,t);
+    for (const i of before) if (mask.has(i)) brokenInfluenceCells.add(i);
+    t.influence = before.filter(i => !mask.has(i));
+  }
+  for (const i of attackCells) s.cells[i] = owner;
+  const removedIds = new Set(targets.map(t => t.id));
+  s.towers = s.towers.filter(t => !removedIds.has(t.id));
+  // Derive a complete new map before damage can put the match into GAME_OVER.
+  recompute(s);
+  const event = fact(s, {type:"charge3Ultimate", owner, x:center.x+.5, y:center.y+.5,
+    width:s.width, height:s.height, attackCells, paintedCells,
+    brokenInfluenceCells:[...brokenInfluenceCells], brokenProtectedCells, destroyedTowers,
+    destroyedTowerIds:[...removedIds], vanguardHit, vanguardPosition, targetOwner});
+  if (vanguardHit) {
+    const previous = s.feedbackGroup;
+    s.feedbackGroup = event.groupId;
+    damage(s, targetOwner, "charge3");
+    s.feedbackGroup = previous;
+  }
+  return event;
+}
 export function siege(s, t, p) {
   if (s.winner) return;
-  removeTower(s, t);
   paintMissile(s, s.current, p, 3);
 }
 function settleRound(s) {

@@ -1,4 +1,6 @@
+import {ultimateTiming,waveDelay} from './ultimate.js';
 const priority = {
+  charge3Ultimate:120,
   takeoverComplete: 95, takeoverStart: 82, reclaim: 70, overload: 52, shielded: 52, restore: 38,
   siege: 100,
   complete: 110,
@@ -31,6 +33,7 @@ export function chargeSpec(level, maxed = false) {
   ][Math.max(0, Math.min(2, level - 1))];
 }
 export function effectDuration(e) {
+  if(e.type==='charge3Ultimate')return ultimateTiming(e.reduced).duration;
   const strategic = {takeoverComplete:750,takeoverStart:900,overload:700,shielded:600,reclaim:e.stage===2?320:240,restore:e.stage===2?320:240,disconnect:450,reconnect:350};
   if (strategic[e.type]) return strategic[e.type];
   return e.type === "heal"
@@ -89,11 +92,14 @@ export class FeedbackDirector {
     this.freezeUntil = 0;
   }
   submit(events, time) {
+    const ultimate=events.find(e=>e.type==='charge3Ultimate');
+    if(ultimate)events=events.filter(e=>!['siege','blast','cross','destroy','disconnect','reconnect'].includes(e.type) &&
+      !(e.type==='damage'&&e.source==='charge3'));
     const groups = new Map();
     for (const e of events) {
       if (this.seen.has(e.eventId)) continue;
       this.seen.add(e.eventId);
-      const f = { ...e, born: time, duration: effectDuration(e) };
+      const f = { ...e, reduced:this.reduced, born: time+(e.delay||0), duration: effectDuration({...e,reduced:this.reduced}) };
       if (e.type === "damage")
         f.drift = [0.9, -0.9, 0.3, -0.4][this.damageCount++ % 4];
       if (
@@ -115,6 +121,10 @@ export class FeedbackDirector {
       const lead = group.reduce((a, b) =>
         (priority[b.type] || 0) > (priority[a.type] || 0) ? b : a,
       );
+      if(lead.type==='charge3Ultimate') {
+        this.audio?.play({type:'ultimateCharge'});
+        continue;
+      }
       this.audio?.play(lead);
       const hitStop = Math.max(
         ...group.map((e) =>
@@ -162,6 +172,19 @@ export class FeedbackDirector {
     if (this.seen.size > 2048) this.seen = new Set([...this.seen].slice(-1024));
   }
   update(time) {
+    for(const e of this.effects.filter(e=>e.type==='charge3Ultimate')) {
+      const age=time-e.born,t=ultimateTiming(e.reduced);
+      if(age>=t.blast&&!e.primaryPlayed){e.primaryPlayed=true;this.audio?.play({type:'ultimateBlast'});}
+      if(age>=t.purge&&!e.purgePlayed){e.purgePlayed=true;this.audio?.play({type:'ultimatePurge'});}
+      const cracked=e.crackedTowerIds ||= new Set();
+      let crack=false;
+      for(const tower of e.destroyedTowers||[])
+        if(!cracked.has(tower.id) && age>=waveDelay(e,{x:tower.pos.x+.5,y:tower.pos.y+.5},e.reduced)) {
+          cracked.add(tower.id);crack=true;
+        }
+      if(crack)this.audio?.play({type:'ultimateCrack'});
+      if(age>=t.damage&&!e.damagePlayed){e.damagePlayed=true;this.audio?.play({type:'ultimateDamage'});}
+    }
     this.effects = this.effects.filter((e) => time - e.born < e.duration);
   }
   shake(time) {

@@ -10,6 +10,7 @@ import * as P from "./physics.js";
 import { battlefieldViewport, profileFor, toView, fromView } from "./view.js";
 import { branchLayout } from "./branches.js";
 import { render, TEAM } from "./renderer.js";
+import {UltimateDirector} from './ultimate.js';
 import { t, teamName, getLanguage, setLanguage } from "./i18n.js";
 const $ = (id) => document.getElementById(id),
   canvas = $("board"),
@@ -73,6 +74,8 @@ audio.onStateChange = () => {
     );
 };
 const feedback = new FeedbackDirector(audio);
+const cinematic = new UltimateDirector();
+let endAfterUltimate = false;
 feedback.reduced = reduceMotion;
 function submit(type, meta = {}, time = performance.now()) {
   const eventId = feedbackId();
@@ -183,6 +186,11 @@ function visualChanges(
     reduceMotion,
     transitions,
   );
+  const ultimate=all.find(e=>e.type==='charge3Ultimate');
+  if(ultimate) {
+    cinematic.startImpact(ultimate,time,reduceMotion);
+    hideOpponent();menuLevel=null;selection=null;pointer=null;aim=null;
+  }
   feedback.submit(all, time);
   effects = feedback.effects;
 }
@@ -201,7 +209,8 @@ function drawStack() {
       !overlayKind &&
       rotationStart === null &&
       observeUntil === null &&
-      settlingUntil === null;
+      settlingUntil === null &&
+      !cinematic.busy(performance.now());
   if (idle && !selection && !menuLevel) menuLevel = "root";
   stack.hidden =
     !idle ||
@@ -340,6 +349,7 @@ function inCancel(event) {
   );
 }
 function update() {
+  const ultimatePlaying=cinematic.busy(performance.now());
   const c = state.current,
     aiming = state.phase.includes("AIM"),
     flying = state.phase.includes("FLYING");
@@ -371,13 +381,15 @@ function update() {
   $("toolbar").style.setProperty("--turn-team", TEAM[c]);
   $("fab").textContent = t(switching ? "Switching" : "End Turn");
   $("fab").disabled =
+    ultimatePlaying ||
     flying ||
     rotationStart !== null ||
     observeUntil !== null ||
     settlingUntil !== null ||
     !!overlayKind;
   $("menu").disabled =
-    rotationStart !== null || observeUntil !== null || settlingUntil !== null;
+    ultimatePlaying || rotationStart !== null || observeUntil !== null || settlingUntil !== null;
+  $("help").disabled=ultimatePlaying;
   $("fab").className = `fab ${c === 1 ? "red" : "blue"}`;
   $("cancel-zone").hidden = !aiming;
   $("cancel-zone").textContent = cancelArmed
@@ -403,7 +415,7 @@ function update() {
     !overlayKind && state.phase !== "HANDOFF",
     pointer !== null,
   );
-  if (state.winner && !overlayKind) result();
+  if (state.winner && !overlayKind && !ultimatePlaying) result();
 }
 function panel(kind, content) {
   hideOpponent();
@@ -424,6 +436,7 @@ function closePanel() {
   update();
 }
 function clearMatch() {
+  cinematic.clear();endAfterUltimate=false;
   audio.stop();
   feedback.clear();
   effects = feedback.effects;
@@ -513,6 +526,7 @@ function result() {
 }
 function end() {
   if (
+    cinematic.busy(performance.now()) ||
     overlayKind ||
     rotationStart !== null ||
     observeUntil !== null ||
@@ -529,6 +543,9 @@ function end() {
     aim = null;
     pointer = null;
     cancelArmed = false;
+    if(cinematic.busy(performance.now())) {
+      endAfterUltimate=true;update();return;
+    }
   }
   if (!E.endTurn(state)) return;
   if (state.winner) {
@@ -573,6 +590,7 @@ function ready() {
 }
 function doAction(action) {
   if (
+    cinematic.busy(performance.now()) ||
     overlayKind ||
     rotationStart !== null ||
     observeUntil !== null ||
@@ -742,8 +760,13 @@ function fire(a) {
   const start = P.origin(state),
     kind = state.phase.startsWith("MOVE") ? "launch" : "fire";
   if (P.launch(state, a, a.power)) {
+    if(state.activeBody.kind==='missile'&&state.activeBody.charge===3) {
+      const prediction=P.predictFinalImpact(state);
+      if(prediction.willDetonate)cinematic.startFlight(state.activeBody,prediction,performance.now());
+    }
     feedback.releaseCharge(start.x, start.y, performance.now());
-    submit(kind, { ...start, charge: state.charge });
+    submit(state.activeBody.kind==='missile'&&state.activeBody.charge===3?'ultimateFlight':kind,
+      { ...start, charge: state.charge });
     menuLevel = null;
     selection = null;
   } else toast("Pull farther");
@@ -753,6 +776,7 @@ function fire(a) {
 }
 function pointerDown(event) {
   if (
+    cinematic.busy(performance.now()) ||
     overlayKind ||
     rotationStart !== null ||
     observeUntil !== null ||
@@ -928,6 +952,11 @@ document.addEventListener("keydown", (e) => {
   }
 });
 function frame(time) {
+  if(cinematic.update(time,state)) {
+    if(endAfterUltimate&&!state.winner){endAfterUltimate=false;end();}
+    else endAfterUltimate=false;
+    update();
+  }
   // Frozen wall-clock time never enters the physics accumulator on thaw.
   const physicsLast = reduceMotion
     ? last
@@ -968,6 +997,7 @@ function frame(time) {
     rotationStart === null &&
     observeUntil === null &&
     settlingUntil === null &&
+    !cinematic.busy(time) &&
     !document.hidden
   ) {
     accumulator = feedback.frozen(time) ? 0 : accumulator + dt;
@@ -998,7 +1028,8 @@ function frame(time) {
     cancelArmed,
     viewport: boardViewport(),
     reduced: reduceMotion,
-    shake: feedback.shake(time),
+    camera: cinematic.camera(time,state.activeBody,reduceMotion),
+    shake: cinematic.busy(time) ? cinematic.camera(time,state.activeBody,reduceMotion).shake : feedback.shake(time),
     opponentFocus: opponentVisible,
     contestedLabel: t("Contested"),
   });
@@ -1020,6 +1051,7 @@ window.addEventListener("resize", () => {
   update();
 });
 document.addEventListener("visibilitychange", () => {
+  cinematic.clear();
   accumulator = 0;
   feedback.clear();
   transitions.clear();
@@ -1030,6 +1062,10 @@ document.addEventListener("visibilitychange", () => {
   last = performance.now();
   pointer = null;
   aim = null;
+  if(!document.hidden && endAfterUltimate && !state.winner) {
+    endAfterUltimate=false;end();
+  }
+  update();
 });
 if (document.modelContext?.registerTool)
   try {

@@ -30,6 +30,11 @@ export function render(canvas, s, v) {
     (v.viewport?.y || 0) + (v.shake?.y || 0),
   );
   ctx.scale(tile, tile);
+  if(v.camera?.focus) {
+    const focus=toView(v.camera.focus,s,v.owner),zoom=v.camera.zoom||1;
+    ctx.translate(s.width/2,s.height/2);ctx.scale(zoom,zoom);
+    ctx.translate(-focus.x,-focus.y);
+  }
   ctx.translate(s.width / 2, s.height / 2);
   ctx.rotate(v.rotation || 0);
   ctx.translate(-s.width / 2, -s.height / 2);
@@ -109,7 +114,7 @@ export function render(canvas, s, v) {
       const protection=transition && transition.fromProtected!==undefined ? Number(transition.fromProtected)+(Number(hasProtection)-Number(transition.fromProtected))*progress : Number(hasProtection);
       if(protection>0) {
         ctx.save();ctx.globalAlpha=protection;
-        ctx.strokeStyle=TEAM[o]+'88';ctx.lineWidth=Math.max(.025,.8/tile);
+        ctx.strokeStyle=TEAM[show.owner]+'88';ctx.lineWidth=Math.max(.025,.8/tile);
         ctx.strokeRect(p.x-.35,p.y-.35,.70,.70);
         ctx.restore();
       }
@@ -428,5 +433,10 @@ export function render(canvas, s, v) {
     }
   }
   drawEffects(ctx, v.effects, v.time, pt, TEAM, v.reduced, v.rotation || 0, v.labels);
+  if(v.camera?.dim || v.camera?.exposure) {
+    ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.globalAlpha=v.camera.exposure||v.camera.dim;
+    ctx.fillStyle=v.camera.exposure?'#eef7ff':'#02070e';ctx.fillRect(0,0,width,height);ctx.restore();
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

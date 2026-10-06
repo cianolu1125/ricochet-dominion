@@ -1,5 +1,11 @@
 // Short authored composites share one limited bus; there is no playback backlog.
 const voices = {
+  ultimateFlight:[85,190,.70,.030],
+  ultimateCrack:[860,240,.07,.023],
+  ultimateCharge:[95,330,.26,.042],
+  ultimateBlast:[145,28,.48,.19],
+  ultimatePurge:[1100,160,.40,.028],
+  ultimateDamage:[440,95,.18,.067],
   overload: [310, 105, .18, .028], shielded: [420, 790, .16, .032],
   takeoverStart: [380, 540, .13, .033], takeoverComplete: [170, 670, .55, .065],
   reclaim: [240, 620, .24, .04], restore: [220, 480, .20, .028],
@@ -142,8 +148,8 @@ export class AudioDirector {
         level = 0.135;
       }
       const now = c.currentTime,
-        heavy = ["siege", "blast", "destroy", "damage"].includes(event.type),
-        major = ["siege", "convert", "complete"].includes(event.type);
+        heavy = ["siege", "blast", "destroy", "damage", "ultimateBlast"].includes(event.type),
+        major = ["siege", "convert", "complete", "ultimateBlast"].includes(event.type);
       this.active = this.active.filter((voice) => {
         if (voice.until > now) return true;
         voice.gain.disconnect();

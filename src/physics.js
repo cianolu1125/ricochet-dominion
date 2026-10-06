@@ -378,7 +378,6 @@ function tick(s, dt, events) {
         const passenger = m.carried;
         if (passenger) releaseBefore(s, m, t, false);
         if (s.winner) return;
-        E.removeTower(s, t);
         finish(s, m, true, p, passenger);
         emit({
           type: "siege",
@@ -438,4 +437,18 @@ export function previewImpact(s, direction, power = 1) {
     dy = (direction.y / len) * distance,
     h = collision(s, m, dx, dy);
   return h ? { x: o.x + dx * h.t, y: o.y + dy * h.t, type: h.type } : null;
+}
+// Bounded prediction reuses the actual physics on an isolated copy. Its facts
+// are discarded; speculative outcomes cannot change the live match.
+export function predictFinalImpact(s) {
+  const predicted=structuredClone(s);
+  predicted.feedbackFacts=[];
+  let ticks=0,impact=null;
+  while(predicted.activeBody && !predicted.winner && ticks<1200) {
+    stepBody(predicted,CONFIG.physics.step);ticks++;
+    impact=predicted.feedbackFacts.find(e=>e.type==='charge3Ultimate')||impact;
+    predicted.feedbackFacts=[];
+  }
+  return {position:impact?{x:impact.x,y:impact.y}:origin(predicted),
+    duration:ticks*CONFIG.physics.step*1000,willDetonate:Boolean(impact),width:s.width,height:s.height};
 }

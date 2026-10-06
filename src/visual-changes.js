@@ -1,4 +1,5 @@
 import { feedbackId } from "./feedback-events.js";
+import {waveDelay,ultimateTiming} from "./ultimate.js";
 export function snapshot(s) {
   return {
     cells: [...s.cells],
@@ -11,6 +12,23 @@ export function snapshot(s) {
 }
 export function visualChanges(s, before, events, time, reduced, transitions) {
   if (!before) return events;
+  const ultimate=events.find(e=>e.type==='charge3Ultimate');
+  if(ultimate) {
+    for(let i=0;i<s.cells.length;i++) {
+      const changed=before.cells[i]!==s.cells[i] || before.stability[i]!==s.stability[i] ||
+        Boolean(before.protectedBy[i]?.length)!==Boolean(s.protectedBy[i]?.length) ||
+        before.pending[i] !== (s.claims.find(c=>c.cells.includes(i))?.captor || 0);
+      if(!changed&&!ultimate.attackCells.includes(i))continue;
+      const p={x:i%s.width+.5,y:Math.floor(i/s.width)+.5};
+      transitions.set(i,{from:before.cells[i],to:s.cells[i],
+        fromTemporary:before.stability[i]==='temporary',toTemporary:s.stability[i]==='temporary',
+        fromProtected:Boolean(before.protectedBy[i]?.length),fromPending:before.pending[i]||0,
+        born:time,delay:waveDelay(ultimate,p,reduced),duration:reduced?60:90,wave:true,soft:false});
+    }
+    return events.filter(e=>!['blast','cross','siege'].includes(e.type) &&
+      !(e.type==='damage'&&e.source==='charge3')).map(e=>
+        e.type==='damage'?{...e,delay:ultimateTiming(reduced).damage}:e);
+  }
   const cross = events.find((e) => e.type === "cross");
   const impact =
     events.find((e) => e.type === "siege") ||
