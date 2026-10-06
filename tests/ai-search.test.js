@@ -74,3 +74,10 @@ test('Hard values recoverable opening HP less than endangered or endgame HP',()=
  const opening=damageGain();full.round=10;hurt.round=10;assert.ok(damageGain()>opening*1.5);
  full.round=1;hurt.round=1;full.players[2].hp=2;hurt.players[2].hp=1;assert.ok(damageGain()>opening*1.5);
 });
+test('Hard projects fresh outpost maturation without multiplying the value of already mature structures',()=>{
+ const fresh=E.createGame(10,'desktop');fresh.players[1].pos={x:12,y:8};assert.ok(E.buildTower(fresh));
+ const mature=structuredClone(fresh);mature.towers.at(-1).stage=2;
+ const strategy={weights:{expansion:1}};
+ const gap=tier=>evaluate(mature,1,strategy,tier).score-evaluate(fresh,1,strategy,tier).score;
+ assert.ok(gap('hard')<=gap('normal')+.001,'future capacity belongs to fresh structures, not a multiplier on old maturity');
+});
