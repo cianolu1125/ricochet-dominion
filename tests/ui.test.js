@@ -16,6 +16,7 @@ async function setup(
     bundle: true,
     write: false,
     format: "iife",
+    define: {"import.meta.url": JSON.stringify("https://example.test/src/main.js")},
     loader: { ".css": "empty" },
     plugins: [
       {
@@ -258,7 +259,7 @@ for (const kind of ["move", "missile"])
       await a.close();
     }
   });
-test("language switches instantly without resetting match; future modes disabled", async () => {
+test("language switches instantly without resetting match; computer enabled and tutorial reserved", async () => {
   const a = await setup();
   try {
     assert.equal(
@@ -267,7 +268,7 @@ test("language switches instantly without resetting match; future modes disabled
     );
     assert.equal(
       a.w.document.querySelector('[data-panel="computer"]').disabled,
-      true,
+      false,
     );
     a.click('[data-panel="start"]');
     const before = a.read();
