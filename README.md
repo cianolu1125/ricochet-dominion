@@ -13,9 +13,9 @@
 - 电脑回合关闭玩家行动输入，可观看战场并打开设置。设置／后台暂停新的操作，返回后完整重播 260ms 实际方向提示；重开／返回主菜单清理旧 Worker 和待执行动作。
 - `engine.js`、`physics.js`、`outposts.js`、`claims.js`、`charge.js` 未作规则改动。设计边界见 [PvE 规格](docs/v0.7.0-spec.md)，验证见 [执行记录](docs/v0.7.0-progress.md)。
 
-当前校准：原误差困难对普通 2 胜 0 负；统一误差 1 胜 1 负。样本很小，尚不能证明同准度下困难稳定更强，完整数据见执行记录。
+验收记录见 [V0.7.0 验收矩阵](docs/v0.7.0-acceptance.md)。难度校准使用相同种子、双方换边、统一普通档操作误差和完整搜索预算，覆盖快速／标准／长局；原始数据与样本范围见执行记录。有限样本不代表所有局面下的难度优劣。
 
-开发工具：`npm run ai:lab -- easy normal 4 --equal-error`；`npm run ai:lab -- normal hard 4`。偶数场交换阵营，固定种子，真实执行误差与搜索流独立。仅供开发，不增加玩家 AI vs AI 模式。
+开发工具：`npm run ai:lab -- easy normal 3 --equal-error --paired --lengths`；`npm run ai:lab -- normal hard 3 --equal-error --paired --lengths`。每个种子双方换边，三个局长采用完整难度预算，真实执行误差与搜索流独立。仅供开发，不增加玩家 AI vs AI 模式。
 
 ## 当前玩法
 
@@ -49,7 +49,7 @@ Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。检查：`npm test`、`npm r
 - `main.js`：输入、菜单、对局生命周期；`relay-hud.js`：只读取规则状态的进度展示。
 - `renderer.js`／`effects.js`／`visual-changes.js`：Canvas 与真实规则结果动效；`feedback.js`／`audio.js`：因果反馈和音频生命周期。
 
-自动测试覆盖四种配置整局、五种视口 DOM 操作、动态争夺增补／分裂／抢救、保护重叠、所有等级真实落点、致命中止、中继菜单与键盘、低帧率停顿恢复、音频资源上限，以及三种固定模式的受控压力局。v0.6.0 另测动态 HP、过载免疫和恢复、终止型接管／收复、五塔原子替换、成熟范围激活、当前连通块争夺及静态视觉结构。原生 Canvas 检查覆盖 Stable／Unstable／Protected／Pending 和 Normal／Overload／Contested 与减少动效。当前环境缺少 Sites 要求的实时游戏浏览器 QA 技能，iOS／Android 真机触控、帧率与音色仍未验证。
+自动测试覆盖四种配置整局、五种视口 DOM 操作、动态争夺增补／分裂／抢救、保护重叠、所有等级真实落点、致命中止、中继菜单与键盘、低帧率停顿恢复、音频资源上限，以及三种固定模式的受控压力局。v0.6.0 另测动态 HP、过载免疫和恢复、终止型接管／收复、五塔原子替换、成熟范围激活、当前连通块争夺及静态视觉结构。原生 Canvas 检查覆盖 Stable／Unstable／Protected／Pending 和 Normal／Overload／Contested 与减少动效。V0.7.0 完整自动套件 354 项通过，包括真实 Worker 桥接的三种局长整局、结果与再来一局；另外完成 18 场布局／难度／局长流程矩阵。真实 Chrome 已核对电脑飞行、建设、输入锁定和回合交还；iOS／Android 真机触控、帧率与音色仍未验证。
 
 ## 发布
 
