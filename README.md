@@ -1,6 +1,21 @@
 # 弹射战线 · RICOCHET FRONT
 
-**v0.6.2** · 同设备本地双人 PvP。手机／平板热座旋转；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
+**v0.7.0** · 本地双人 PvP ＋ 简单／普通／困难 PvE。手机本地双人热座旋转；人机固定玩家红方视角；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
+
+## 人机对战
+
+主菜单选择「人机对战」→ 难度 → 开始。玩家红方先行，电脑蓝方。快速／标准／长局与原版共用规则；重开和再来一局保留模式、难度及局长，生成新种子。
+
+- 简单：基础局面评价、小束搜索、明显操作误差。
+- 普通：完整局面特征、动态战略、中继搜索、移动／行动顺序比较。
+- 困难：更宽搜索、局部方向／力度优化、独立误差采样及选择性对手回应；保留真实非零操作误差。
+- 电脑每次真实落地或中继后重新规划。搜索只在独立 Web Worker 复制局面上运行；主线程通过原规则／物理引擎执行，所有飞行、携带、蓄能和攻城动画正常播放。
+- 电脑回合关闭玩家行动输入，可观看战场并打开设置。设置／后台暂停新的操作，返回后完整重播 260ms 实际方向提示；重开／返回主菜单清理旧 Worker 和待执行动作。
+- `engine.js`、`physics.js`、`outposts.js`、`claims.js`、`charge.js` 未作规则改动。设计边界见 [PvE 规格](docs/v0.7.0-spec.md)，验证见 [执行记录](docs/v0.7.0-progress.md)。
+
+当前校准：原误差困难对普通 2 胜 0 负；统一误差 1 胜 1 负。样本很小，尚不能证明同准度下困难稳定更强，完整数据见执行记录。
+
+开发工具：`npm run ai:lab -- easy normal 4 --equal-error`；`npm run ai:lab -- normal hard 4`。偶数场交换阵营，固定种子，真实执行误差与搜索流独立。仅供开发，不增加玩家 AI vs AI 模式。
 
 ## 当前玩法
 
@@ -39,7 +54,7 @@ Node 20.19+ 或 22.12+。`npm ci`、`npm run dev`。检查：`npm test`、`npm r
 ## 发布
 
 - [在线游戏](https://ricochet-dominion.cianolu.chatgpt.site)
-- [GitHub](https://github.com/cianolu1125/ricochet-dominion)：既有私有仓库、`main`。
+- [GitHub](https://github.com/cianolu1125/ricochet-dominion)：公开仓库、`main`。
 - Sites 与 GitHub 同版源码，分别保留各自提交历史。GitHub 提交不会自动发布 Sites。
 - [v0.6.0 执行记录](docs/v0.6.0-progress.md)。
 

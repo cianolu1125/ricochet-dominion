@@ -1,3 +1,13 @@
+# v0.7.0 — 2026-10-07
+
+- Added offline VS Computer with Easy / Normal / Hard; shared V0.6.2 rules, physics, actions, HP and match lengths. Local PvP is preserved.
+- Isolated Worker search, seeded decision variation and independent nonzero execution aim/power error. Real launch outcomes and relay captures trigger dynamic replanning.
+- Semantic targets, wall reflections, bounded relay beam search, move/action order evaluation, dynamic strategy and normalized infrastructure/territory/safety/pending scoring. Hard adds local refinement, whole-chain robustness and selective opponent replies with comparable per-plan budgets.
+- Human Red fixed PvE view, lightweight computer status and input lock, actual-direction cue, settings/background pause, full cue on resume, fresh rematch seed and generation/request/state guards.
+- Shared engine execution retains all build/redeploy/dismantle/takeover/reclaim, carry, overload/shielding and ultimate feedback.
+- Added RNG/distribution, simulator, strategy/search, controller, real Worker, UI, tactical chain and full-match tests, plus paired-seed headless balance lab and complete control/connection invariants.
+- Completed own-turn uncertainty paths and full opponent relay response search, disabled stopped AI sessions, valued contested ownership prospects, and replaced blanket mature-tower bonuses with bounded unused growth capacity.
+
 # v0.6.2 — 2026-10-06
 
 - Charge III uses an independent 5×5 + full-row + full-column mask. All enemy influence claims in range are removed, protected cells force-painted, all enemy outpost centers demolished and the enemy vanguard hit once for −1 HP. Independent damage sources still stack.
