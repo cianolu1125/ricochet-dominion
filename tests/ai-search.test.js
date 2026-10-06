@@ -66,13 +66,13 @@ test('Hard expansion values future outpost growth while avoiding late-game infra
  const gain=(difficulty)=>evaluate(built,1,strategy,difficulty).score-evaluate(base,1,strategy,difficulty).score;
  assert.ok(gain('hard')>gain('normal')+.1);
  base.round=10;built.round=10;
- assert.ok(Math.abs(gain('hard')-gain('normal'))<.001);
+ const aged=structuredClone(built);aged.towers.at(-1).stage=2;
+ assert.equal(evaluate(aged,1,strategy,'hard').score,evaluate(built,1,strategy,'hard').score,'closing score ignores maturity when area, HP and tower count are unchanged');
 });
-test('Hard values recoverable opening HP less than endangered or endgame HP',()=>{
+test('Hard values recoverable opening HP less than endangered HP',()=>{
  const full=E.createGame(10,'desktop'),hurt=structuredClone(full);hurt.players[2].hp--;
  const damageGain=()=>evaluate(hurt,1,{weights:{}},'hard').score-evaluate(full,1,{weights:{}},'hard').score;
- const opening=damageGain();full.round=10;hurt.round=10;assert.ok(damageGain()>opening*1.5);
- full.round=1;hurt.round=1;full.players[2].hp=2;hurt.players[2].hp=1;assert.ok(damageGain()>opening*1.5);
+ const opening=damageGain();full.players[2].hp=2;hurt.players[2].hp=1;assert.ok(damageGain()>opening*1.5);
 });
 test('Hard projects fresh outpost maturation without multiplying the value of already mature structures',()=>{
  const fresh=E.createGame(10,'desktop');fresh.players[1].pos={x:12,y:8};assert.ok(E.buildTower(fresh));

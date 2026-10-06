@@ -61,6 +61,23 @@ test('every difficulty recognizes a legal 60-percent end-round win',()=>{
  }
 });
 
+test('Hard closing evaluation follows real area, HP, then outpost score priorities',()=>{
+ for(const rounds of [10,14,18])for(const round of [rounds-1,rounds]) {
+  const base=E.createGame(rounds,'phone');base.round=round;
+  const neutral=base.cells.findIndex(c=>c===0);
+  const hpLead=structuredClone(base);hpLead.players[1].hp=rounds;hpLead.players[2].hp=3;
+  const areaLead=structuredClone(base);areaLead.cells[neutral]=1;areaLead.players[1].hp=3;areaLead.players[2].hp=rounds;E.recompute(areaLead);
+  assert.ok(evaluate(areaLead,1,{weights:{}},'hard').score>evaluate(hpLead,1,{weights:{}},'hard').score,'one cell takes precedence over nonfatal HP advantage');
+  const towerLead=structuredClone(base),own=base.towers.find(t=>t.owner===1);
+  const cell=base.cells.findIndex((c,i)=>c===1&&i!==E.index(base,own.pos));
+  const extra={id:++towerLead.nextId,owner:1,slot:'B',pos:{x:cell%base.width,y:Math.floor(cell/base.width)},stage:0,state:'normal',protected:[]};
+  towerLead.towers.push(extra);E.expand(towerLead,extra);E.recompute(towerLead);
+  const oneHpLead=structuredClone(base);oneHpLead.players[2].hp--;
+  assert.ok(evaluate(oneHpLead,1,{weights:{}},'hard').score>evaluate(towerLead,1,{weights:{}},'hard').score,'HP is the first equal-area tiebreak');
+  assert.ok(evaluate(towerLead,1,{weights:{}},'hard').score>evaluate(base,1,{weights:{}},'hard').score,'outposts break equal area and HP');
+ }
+});
+
 test('Normal search chooses reclaim, redeploy and dismantle when they provide the best real outcome',()=>{
  for(const kind of ['reclaim','redeploy','dismantle']) {
   const s=E.createGame(10,'desktop');s.cells.fill(0);s.towers=[];s.players[1].pos={x:9,y:9};s.players[2].pos={x:29,y:9};s.moveAvailable=false;
