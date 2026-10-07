@@ -1,0 +1,69 @@
+/* Three skins share the same layout and input geometry. */
+.theme-list{display:grid;gap:12px;margin-top:24px}
+#panel .theme-card{position:relative;display:flex;align-items:center;gap:16px;width:100%;min-height:114px;padding:16px;text-align:left;background:var(--card-bg);color:#e2dccb;border:1px solid color-mix(in srgb,var(--card-accent) 38%,transparent);border-radius:5px;box-shadow:none;overflow:hidden}
+#panel .theme-card.selected{border-color:var(--card-accent);box-shadow:inset 3px 0 var(--card-accent)}
+.theme-copy{flex:1;min-width:0}.theme-copy strong{display:block;font-size:18px;line-height:1.5}.theme-copy small{display:block;font-size:12px;line-height:1.6;opacity:.72;margin-top:4px}.theme-tag{font-size:10px;letter-spacing:.2em;color:var(--card-accent)}
+.theme-check{color:var(--card-accent);font-size:18px}.theme-emblem{position:relative;flex:0 0 58px;height:58px;display:grid;place-items:center;border:1px solid var(--card-accent);border-radius:50%;transform:rotate(-12deg)}
+.theme-emblem b{width:23px;height:23px;border:1px solid var(--card-accent);transform:rotate(45deg)}.theme-emblem i{position:absolute;width:8px;height:8px;left:-4px;top:24px;background:var(--card-red);border:2px solid var(--card-bg)}.theme-emblem i:last-child{left:auto;right:-4px;background:var(--card-blue)}
+[data-preview="coven"] .theme-emblem{outline:1px dashed var(--card-accent);outline-offset:-7px}[data-preview="coven"] .theme-emblem b{clip-path:polygon(50% 0,100% 100%,0 100%);background:var(--card-accent);transform:none;width:20px;height:20px}
+[data-preview="tang"] .theme-emblem{border-radius:0;transform:none;outline:1px solid var(--card-accent);outline-offset:-6px}[data-preview="tang"] .theme-emblem b{transform:none;box-shadow:inset 0 0 0 4px var(--card-bg);background:var(--card-accent)}
+#panel .theme-note{font-size:13px;color:var(--theme-muted);line-height:1.6}.theme-entry{width:100%;font-size:14px}
+.action-flavor{display:block;font-size:10px;line-height:1.05;letter-spacing:.12em;opacity:.65}
+html:not([data-theme="original"]) body{background:var(--theme-bg);color:var(--theme-text)}
+html:not([data-theme="original"]) #game{background:var(--theme-bg)}
+html:not([data-theme="original"]) button{color:var(--theme-text);background:var(--theme-panel);border-color:color-mix(in srgb,var(--theme-accent) 38%,transparent);border-radius:3px}
+html:not([data-theme="original"]) button:focus-visible{outline-color:var(--theme-accent)}
+html:not([data-theme="original"]) #overlay{background:color-mix(in srgb,var(--theme-bg) 91%,transparent)}
+html:not([data-theme="original"]) #panel{position:relative;background-color:var(--theme-panel);color:var(--theme-text);border-color:color-mix(in srgb,var(--theme-accent) 45%,transparent);border-top-color:var(--theme-accent);box-shadow:0 22px 80px #0008}
+html:not([data-theme="original"]) #panel p{color:var(--theme-muted)}
+html:not([data-theme="original"]) #panel .eyebrow{color:var(--theme-accent);font-size:12px}
+html:not([data-theme="original"]) #panel h1{font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;font-weight:600;letter-spacing:.12em;font-size:clamp(28px,7vw,36px)}
+html:not([data-theme="original"]) #panel .primary{background:color-mix(in srgb,var(--theme-accent) 12%,var(--theme-bg));color:var(--theme-text);border-color:var(--theme-accent)}
+html:not([data-theme="original"]) #panel .selected{border-color:var(--theme-accent);box-shadow:inset 0 -2px var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 10%,var(--theme-bg))}
+html:not([data-theme="original"]) #panel .theme-card{background:var(--card-bg);border-color:color-mix(in srgb,var(--card-accent) 38%,transparent);color:#e2dccb;box-shadow:none}
+html:not([data-theme="original"]) #panel .theme-card.selected{border-color:var(--card-accent);box-shadow:inset 3px 0 var(--card-accent)}
+html:not([data-theme="original"]) #panel .version{color:var(--theme-muted)}
+html:not([data-theme="original"]) #toolbar{background:color-mix(in srgb,var(--theme-bg) 94%,transparent);border-top-color:color-mix(in srgb,var(--theme-accent) 35%,transparent)}
+html:not([data-theme="original"]) .player-hud .stats,html:not([data-theme="original"]) #charge,html:not([data-theme="original"]) .legend{color:var(--theme-muted)}
+html:not([data-theme="original"]) #opponent,html:not([data-theme="original"]) #hint,html:not([data-theme="original"]) #toast,html:not([data-theme="original"]) #stack p{background:var(--theme-panel);border-color:var(--theme-accent);color:var(--theme-text)}
+html:not([data-theme="original"]) #opponent-close{background:none}
+html:not([data-theme="original"]) #stack button{background:var(--theme-panel);border-color:var(--team);box-shadow:0 4px 14px #0008,inset 0 0 0 3px var(--theme-bg)}
+html:not([data-theme="original"]) #stack button::before{display:none}
+html:not([data-theme="original"]) #stack button.unavailable{border-color:var(--theme-muted)}
+html:not([data-theme="original"]) .branch-lines path{stroke:var(--theme-accent);filter:none}
+html:not([data-theme="original"]) .fab.red{border-color:var(--red);color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--theme-bg));box-shadow:none}
+html:not([data-theme="original"]) .fab.blue{border-color:var(--blue);color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,var(--theme-bg));box-shadow:none}
+html:not([data-theme="original"]) #cancel-zone{background:var(--theme-panel);border-color:var(--theme-accent);color:var(--theme-text)}
+html:not([data-theme="original"]) .cancel-armed #cancel-zone{background:color-mix(in srgb,var(--red) 22%,var(--theme-bg));color:var(--red);border-color:var(--red)}
+html:not([data-theme="original"]) .setting-label input{accent-color:var(--theme-accent)}
+html:not([data-theme="original"]) .team-shapes span{box-shadow:none}.team-shapes span:nth-child(2){color:var(--theme-accent)}
+html[data-theme="coven"] #panel{background-image:radial-gradient(circle at 50% 0%,#a895680b 0,transparent 64%);border-radius:16px 16px 3px 3px}
+html[data-theme="coven"] .team-shapes{height:50px;justify-content:center;gap:20px}
+html[data-theme="coven"] .team-shapes span{width:34px;height:34px;outline:1px dashed currentColor;outline-offset:5px}
+html[data-theme="coven"] .team-shapes span:nth-child(2){transform:rotate(45deg);width:24px;height:24px;border-color:var(--theme-accent)}
+html[data-theme="coven"] #stack button{border-radius:8px 8px 2px 2px}
+html[data-theme="tang"] #panel{background-image:linear-gradient(#c3a05a06 1px,transparent 1px),linear-gradient(90deg,#c3a05a06 1px,transparent 1px);background-size:36px 36px;border-radius:2px;border-top-width:3px}
+html[data-theme="tang"] .team-shapes span{border-radius:1px;outline:1px solid currentColor;outline-offset:-6px;width:28px;height:28px}
+html[data-theme="tang"] .team-shapes span:nth-child(2){border-color:var(--theme-accent);height:36px}
+html[data-theme="tang"] #stack button{border-radius:1px;border-top-width:2px}
+html:not([data-theme="original"]) #relay-hud{color:var(--theme-text)}
+html:not([data-theme="original"]) #relay-track::before{background:var(--theme-accent)}
+html[data-theme="coven"] .relay-node{border-radius:2px;transform:rotate(45deg);background:var(--theme-bg);outline:1px solid var(--theme-accent);outline-offset:3px}
+html[data-theme="tang"] .relay-node{border-radius:50%;background:var(--theme-bg);box-shadow:inset 0 0 0 2px var(--theme-bg);border-color:var(--theme-accent)}
+html:not([data-theme="original"]) .relay-node.lit{background:var(--relay-team);border-color:var(--theme-accent);box-shadow:0 0 6px color-mix(in srgb,var(--relay-team) 35%,transparent)}
+html:not([data-theme="original"]) .legend i{background:var(--theme-redFill)}
+html:not([data-theme="original"]) .legend .temporary{background:repeating-linear-gradient(135deg,var(--theme-redFill) 0 2px,var(--theme-bg) 2px 4px)}
+#game.theme-changing::after{content:"";position:absolute;inset:0;z-index:20;pointer-events:none;background:var(--theme-bg);animation:theme-reveal 220ms ease-out forwards}
+@keyframes theme-reveal{from{opacity:.65}to{opacity:0;visibility:hidden}}
+html[data-theme="tang"] #game.theme-changing::after{background:linear-gradient(100deg,transparent 30%,#c3a05a30 50%,transparent 70%);background-size:200% 100%;animation:tang-reveal 220ms ease-out forwards}
+@keyframes tang-reveal{from{background-position:100% 0;opacity:1}to{background-position:-100% 0;opacity:0;visibility:hidden}}
+.reduced.theme-changing::after{animation:theme-reveal 150ms ease-out forwards!important}
+@media(prefers-reduced-motion:reduce){#game.theme-changing::after{animation:theme-reveal 150ms ease-out forwards!important}}
+@media(max-width:380px){#panel .theme-card{padding:12px;gap:12px;min-height:102px}.theme-emblem{flex-basis:46px;height:46px}.theme-emblem i{top:18px}.theme-copy strong{font-size:17px}}
+html:not([data-theme="original"]) .mode-grid small,html:not([data-theme="original"]) .sound-status{color:var(--theme-muted)}
+html:not([data-theme="original"]) #relay-track::before{box-shadow:none}
+html:not([data-theme="original"]) #relay-skill{text-shadow:none}
+html[data-theme="tang"] .relay-node.key-node{transform:none;border-radius:50%}
+html:not([data-theme="original"]) #stack button.takeover{background:var(--theme-panel);border-color:var(--theme-accent);box-shadow:inset 2px 0 var(--red),inset -2px 0 var(--blue)}
+html:not([data-theme="original"]) button:active:not(:disabled){border-color:var(--theme-accent);filter:brightness(1.13)}
+html:not([data-theme="original"]) button:disabled{filter:none}
