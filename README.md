@@ -1,3 +1,7 @@
+# V0.7.2 · COVEN Black Moon
+
+COVEN now uses symmetric ritual action cards, sealed-wax red and moonlit blue, fractured Unstable seals, staged black-iron anchors, arcane ribbons, layered impact circles and authored ritual audio. ORIGINAL and TANG keep their V0.7.1 presentation. Game rules, AI and turn timing are unchanged.
+
 # 弹射战线 · RICOCHET FRONT
 
 **v0.7.1** · 本地双人 PvP ＋ 简单／普通／困难 PvE。手机本地双人热座旋转；人机固定玩家红方视角；桌面固定视角。权威开发规格：[v0.6.2 完整更新规格](docs/v0.6.2-spec.txt)。历史版本规则见 CHANGELOG。
