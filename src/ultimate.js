@@ -1,3 +1,4 @@
+import {drawBlackMoon} from './themes/coven-effects.js';
 import {currentTheme} from './themes/theme-manager.js';
 import {sigil,towerCore} from './themes/geometry.js';
 // Presentation-only coordinates and timing. These functions never settle game rules.
@@ -69,6 +70,7 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
     ctx.arc(p.x,p.y,Math.max(.01,r),0,Math.PI*2);ctx.stroke();
   };
   ctx.save();
+  if(theme.id==='coven')drawBlackMoon(ctx,center,age,theme,reduced,t.blast);
   if(themed&&age<t.blast){
     const q=clamp(age/230);ctx.globalAlpha=Math.sin(q*Math.PI)*.9;ctx.strokeStyle=theme.colors.accent;ctx.lineWidth=.035;
     sigil(ctx,center.x,center.y,.28+(1-q)*1.2,theme.id,theme.id==='coven'?q*.2:0);
