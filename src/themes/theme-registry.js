@@ -1,8 +1,10 @@
+import {covenAudioBank} from './coven-audio.js';
 import {originalVoices} from './audio-recipes.js';
 export const audioEvents=Object.keys(originalVoices);
 export const visualEvents=['ui','launch','fire','bounce','capture','carry','land','damage','blast','destroy','siege','build','grow','disconnect','reconnect','convert','redeploy','handoff','complete','charge','cross','overload','shielded','takeoverStart','takeoverComplete','reclaim','restore','charge3Ultimate','heal'];
 const groups={ui:'touch',launch:'air',fire:'string',bounce:'metal',capture:'glass',carry:'air',land:'stone',damage:'drum',blast:'impact',destroy:'stone',siege:'impact',build:'wood',grow:'drum',disconnect:'air',reconnect:'glass',convert:'glass',redeploy:'wood',handoff:'touch',complete:'glass',charge:'glass',cross:'string',overload:'stone',shielded:'metal',takeoverStart:'glass',takeoverComplete:'impact',reclaim:'wood',restore:'glass',ultimateFlight:'air',ultimateCrack:'metal',ultimateCharge:'drum',ultimateBlast:'impact',ultimatePurge:'air',ultimateDamage:'drum'};
 function audioBank(id){
+ if(id==='coven')return covenAudioBank(originalVoices);
  return Object.fromEntries(audioEvents.map(event=>{
   const base=originalVoices[event],material=groups[event];
   if(id==='original')return [event,{voice:base,material:'original'}];
@@ -13,10 +15,10 @@ function audioBank(id){
  }));
 }
 function freeze(o){Object.values(o).forEach(v=>{if(v&&typeof v==='object')freeze(v)});return Object.freeze(o)}
-function define(id,meta,colors){return freeze({id,meta,colors,team:{1:colors.red,2:colors.blue},board:{0:colors.neutral,1:colors.redFill,2:colors.blueFill},audio:audioBank(id),vfx:Object.fromEntries(visualEvents.map(event=>[event,{event,geometry:id==='coven'?'sigil':id==='tang'?'seal':'original',accent:colors.accent,flash:colors.flash}]))})}
+function define(id,meta,colors){return freeze({id,meta,colors,...(id==='coven'?{tiles:{stable:'plain',unstable:'broken-seal',protected:'individual-seal',contested:'dual-contract'},ui:{actionShape:'ritual-hex',panelShape:'symmetric-cut'},fx:{hit:{layers:3},charge1:{particles:12},charge2:{particles:18},charge3:{particles:26}}}:{}),team:{1:colors.red,2:colors.blue},board:{0:colors.neutral,1:colors.redFill,2:colors.blueFill},audio:audioBank(id),vfx:Object.fromEntries(visualEvents.map(event=>[event,{event,geometry:id==='coven'?'sigil':id==='tang'?'seal':'original',accent:colors.accent,flash:colors.flash}]))})}
 export const themes=freeze({
  original:define('original',{zh:'原典',en:'Original',tag:'ORIGINAL',description:['当前战术科技风','Precision tactical technology'],subtitle:['战术 · 科技 · 弹射','TACTICAL / RICOCHET']},{bg:'#101b26',panel:'#11212f',text:'#e6eef5',muted:'#a6b9c8',red:'#efaaa2',blue:'#9bc7f0',accent:'#9bc7f0',flash:'#eff8ff',neutral:'#253542',redFill:'#66454e',blueFill:'#355976'}),
- coven:define('coven',{zh:'女巫契约',en:'The Coven',tag:'COVEN',description:['中世纪秘术与禁忌仪式','Black iron, moonlight and ritual'],subtitle:['女巫契约 · 黑月仪式','THE COVEN / BLACK MOON']},{bg:'#0B0A0F',panel:'#171813',text:'#D8CEB1',muted:'#a39b87',red:'#CF7377',blue:'#8BB4CE',accent:'#A89568',flash:'#eee6cd',neutral:'#282829',redFill:'#654044',blueFill:'#354e61'}),
+ coven:define('coven',{zh:'女巫契约',en:'The Coven',tag:'COVEN',description:['中世纪秘术与禁忌仪式','Black iron, moonlight and ritual'],subtitle:['女巫契约 · 黑月仪式','THE COVEN / BLACK MOON']},{bg:'#08070B',deep:'#121117',panel:'#15131B',text:'#ECE3CF',muted:'#B8AC97',red:'#B44F63',redHi:'#D66D80',redDeep:'#713443',blue:'#668AA8',blueHi:'#8EB7D8',blueDeep:'#3A5164',accent:'#9A865F',flash:'#ECE3CF',border:'#403548',heal:'#A3B7A1',neutral:'#121117',redFill:'#713443',blueFill:'#3A5164'}),
  tang:define('tang',{zh:'大唐山河',en:'Tang Dominion',tag:'TANG',description:['军阵、金石、朱砂与石青','Fort seals, bronze and mineral color'],subtitle:['大唐 · 山河局','TANG / MOUNTAINS & RIVERS']},{bg:'#17140F',panel:'#241D17',text:'#E2D2AD',muted:'#ad9d80',red:'#DB8167',blue:'#8CBBBB',accent:'#C3A05A',flash:'#f4e5b8',neutral:'#302c25',redFill:'#684337',blueFill:'#375653'})
 });
 export const getTheme=id=>themes[id]||themes.original;

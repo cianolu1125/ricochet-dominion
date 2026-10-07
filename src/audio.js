@@ -184,7 +184,10 @@ export class AudioDirector {
         oscillator.start(at);
         oscillator.stop(at + length + 0.015);
       };
-      if(themed){
+      if(theme.id==='coven'){
+        const layers=event.type==='charge'?skin.levels[Math.max(0,Math.min(2,(event.charge||1)-1))]:skin.layers;
+        for(const l of layers)tone(l.start,l.end,now+duration*l.offset,duration*l.length,level*l.gain,l.type);
+      }else if(themed){
         const material=skin.material;
         tone(start,end,now,duration,level*.78,heavy?'sine':skin.waveform);
         if(['metal','glass'].includes(material)){
@@ -226,16 +229,16 @@ export class AudioDirector {
         };
         noise.start(now);
         noise.stop(now + duration);
-      } else if (
+      } else if (theme.id!=='coven' && (
         event.type === "charge" ||
         ["build", "redeploy", "convert"].includes(event.type)
-      )
+      ))
         tone(end, end, now + duration * 0.68, duration * 0.3, level * 0.4);
-      else if (event.type === "complete") {
+      else if (theme.id!=='coven' && event.type === "complete") {
         tone(themed?end*.75:480, themed?end*.75:480, now + 0.2, 0.18, 0.045);
         tone(themed?end:640, themed?end:640, now + 0.4, 0.26, 0.045);
       }
-      if (event.type === "blast" && event.charge >= 2)
+      if (theme.id!=='coven' && event.type === "blast" && event.charge >= 2)
         tone(280, 110, now + 0.06, 0.24, 0.025);
     } catch {}
   }

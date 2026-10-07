@@ -1,5 +1,5 @@
 import {currentTheme} from './themes/theme-manager.js';
-import {protectedTile,towerCore,player,projectile} from './themes/geometry.js';
+import {protectedTile,towerCore,player,projectile,unstableTile,arcaneRibbon} from './themes/geometry.js';
 import { relayStatus } from "./engine.js";
 import { tilePresentation } from "./feedback.js";
 import { drawEffects } from "./effects.js";
@@ -102,7 +102,8 @@ export function render(canvas, s, v) {
         ctx.strokeRect(p.x - 0.48, p.y - 0.48, 0.96, 0.96);
       }
       ctx.globalAlpha = 1;
-      if (temporary) {
+      if (temporary && theme.id==='coven')unstableTile(ctx,p,theme,tile);
+      else if (temporary) {
         // Static, rotation-safe dark tile with two hand-drawn inner shadow corners.
         ctx.fillStyle='#05080b33';ctx.fillRect(p.x-.484,p.y-.484,.968,.968);
         ctx.strokeStyle='#05080ba6';ctx.lineWidth=Math.max(.045,1.25/tile);
@@ -149,10 +150,10 @@ export function render(canvas, s, v) {
       ctx.strokeStyle=TEAM[owner]+'99';ctx.setLineDash([.22,.16]);
       ctx.lineDashOffset=v.reduced?0:-v.time/8000*.38;path();ctx.stroke();
     } else {
-      ctx.strokeStyle='#d3d9d060';path();ctx.stroke();
+      ctx.strokeStyle=theme.id==='coven'?theme.colors.border:'#d3d9d060';path();ctx.stroke();
       ctx.lineWidth=Math.max(.035,1/tile);ctx.setLineDash([.24,.24]);
       const offset=v.reduced?0:-v.time/6500*.48;
-      for(const team of [1,2]){ctx.strokeStyle=TEAM[team]+'88';ctx.lineDashOffset=offset+(team===2?.24:0);path();ctx.stroke();}
+      for(const team of [1,2]){ctx.strokeStyle=TEAM[team]+'88';ctx.lineDashOffset=theme.id==='coven'?(team===2?-offset+.24:offset):offset+(team===2?.24:0);path();ctx.stroke();}
     }
     ctx.restore();
     if(withLabel){const points=contours.flat().map(pt),top=Math.min(...points.map(p=>p.y));
@@ -197,6 +198,7 @@ export function render(canvas, s, v) {
       ctx.lineWidth=Math.max(.035,1.1/tile);
       for(const [r,period,dir] of [[.57,4800,1],[.69,6000,-1]]) {
         const orbit=v.reduced?-.8:dir*v.time/period*Math.PI*2;
+        if(theme.id==='coven'){ctx.globalAlpha=.56;ctx.strokeStyle=r===.57?TEAM[t.owner]:theme.colors.text;}
         ctx.beginPath();ctx.arc(p.x,p.y,r,orbit,orbit+Math.PI*.65);ctx.stroke();
       }
       ctx.restore();
@@ -211,6 +213,7 @@ export function render(canvas, s, v) {
     }
     if (relay === "used") {
       ctx.strokeStyle = TEAM[t.owner] + "66";
+      if(theme.id==='coven'){ctx.strokeStyle=theme.colors.accent+'55';ctx.beginPath();ctx.arc(p.x,p.y,.65,.45,Math.PI*1.35);ctx.stroke();}
       ctx.lineWidth = 0.025;
       ctx.beginPath();
       ctx.arc(p.x, p.y, 0.52, 0.25, Math.PI * 1.65);
@@ -404,7 +407,8 @@ export function render(canvas, s, v) {
   }
   const m = s.activeBody;
   if (m) {
-    for (
+    if(theme.id==='coven'&&m.kind==='missile')arcaneRibbon(ctx,m.trail,m,m.charge||0,theme,s.current,pt);
+    else for (
       let n = Math.max(0, m.trail.length - (m.charge === 3 ? 10 : 7));
       n < m.trail.length;
       n++

@@ -1,4 +1,4 @@
-export const VERSION = "0.7.1";
+export const VERSION = "0.7.2";
 export const NAMES = { 1: "红方", 2: "蓝方" };
 export const PROFILES = {
   phone: [18, 32],

@@ -1,7 +1,9 @@
+import {drawCovenEvent} from './coven-effects.js';
 import {sigil} from './geometry.js';
 // A shared primitive budget is passed by the existing feedback renderer.
 // True means this skin completely authored the event, false uses shared semantic feedback.
 export function drawThemeEvent(ctx,e,p,q,age,theme,reduced,spend,pt){
+ if(theme.id==='coven')return drawCovenEvent(ctx,e,p,q,age,theme,reduced,spend,pt);
  const kind=theme.id,color=theme.team[e.owner]||theme.team[1],accent=theme.colors.accent;
  const mark=(x,y,r,alpha=1,phase=0)=>{ctx.globalAlpha=Math.max(0,alpha);ctx.strokeStyle=accent;ctx.lineWidth=.027;sigil(ctx,x,y,r,kind,phase)};
  const line=(a,b,c=color,alpha=1,width=.04)=>{ctx.globalAlpha=alpha;ctx.strokeStyle=c;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()};

@@ -195,7 +195,7 @@ export function drawEffects(
       ctx.rotate(-rotation);
       const appear = Math.min(1, age / 120), fade = Math.max(0, 1 - Math.max(0, age - 650) / 250);
       ctx.globalAlpha = appear * fade;
-      ctx.fillStyle = "#7fe3aa";
+      ctx.fillStyle = theme.id==='coven'?theme.colors.heal:"#7fe3aa";
       ctx.font = "700 .5px system-ui";
       ctx.textAlign = "center";
       const scale = reduced ? 1 : 0.9 + appear * 0.1;

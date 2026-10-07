@@ -1,3 +1,12 @@
+## 0.7.2 — 2026-10-07
+
+- COVEN: symmetric painted hexagonal menus with unchanged rectangular pointer targets.
+- Sealed-wax red / lunar blue palette; quiet Stable territory, fractured Unstable marks and individual Protected seals.
+- Staged ritual anchors, used/overloaded relay distinctions, bounded ribbons that reset across bounces.
+- Layered hit sigils; progressively distinct Charge I–III; Black Moon impact within the existing cinematic timing and actual attack mask.
+- Authored material sound layers for all 33 cues, one shared audio context/mixer, absorption silence before the existing ultimate blast cue.
+- No gameplay, PVP/PVE, AI, physics, theme-manager or ORIGINAL/TANG changes.
+
 # v0.7.1 — 2026-10-07
 
 - Added Original / Coven / Tang presentation themes across menus, HUD, board geometry, event effects and synthesized audio.
