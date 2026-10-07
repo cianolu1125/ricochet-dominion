@@ -37,11 +37,11 @@ html:not([data-theme="original"]) #cancel-zone{background:var(--theme-panel);bor
 html:not([data-theme="original"]) .cancel-armed #cancel-zone{background:color-mix(in srgb,var(--red) 22%,var(--theme-bg));color:var(--red);border-color:var(--red)}
 html:not([data-theme="original"]) .setting-label input{accent-color:var(--theme-accent)}
 html:not([data-theme="original"]) .team-shapes span{box-shadow:none}.team-shapes span:nth-child(2){color:var(--theme-accent)}
-html[data-theme="coven"] #panel{background-image:radial-gradient(circle at 50% 0%,#a895680b 0,transparent 64%);border-radius:16px 16px 3px 3px}
+html[data-theme="coven"] #panel{background-image:radial-gradient(circle at 50% 0%,#a895680b 0,transparent 64%);border-radius:10px}
 html[data-theme="coven"] .team-shapes{height:50px;justify-content:center;gap:20px}
 html[data-theme="coven"] .team-shapes span{width:34px;height:34px;outline:1px dashed currentColor;outline-offset:5px}
 html[data-theme="coven"] .team-shapes span:nth-child(2){transform:rotate(45deg);width:24px;height:24px;border-color:var(--theme-accent)}
-html[data-theme="coven"] #stack button{border-radius:8px 8px 2px 2px}
+
 html[data-theme="tang"] #panel{background-image:linear-gradient(#c3a05a06 1px,transparent 1px),linear-gradient(90deg,#c3a05a06 1px,transparent 1px);background-size:36px 36px;border-radius:2px;border-top-width:3px}
 html[data-theme="tang"] .team-shapes span{border-radius:1px;outline:1px solid currentColor;outline-offset:-6px;width:28px;height:28px}
 html[data-theme="tang"] .team-shapes span:nth-child(2){border-color:var(--theme-accent);height:36px}
@@ -67,3 +67,28 @@ html[data-theme="tang"] .relay-node.key-node{transform:none;border-radius:50%}
 html:not([data-theme="original"]) #stack button.takeover{background:var(--theme-panel);border-color:var(--theme-accent);box-shadow:inset 2px 0 var(--red),inset -2px 0 var(--blue)}
 html:not([data-theme="original"]) button:active:not(:disabled){border-color:var(--theme-accent);filter:brightness(1.13)}
 html:not([data-theme="original"]) button:disabled{filter:none}
+
+/* COVEN v0.7.2: paint the hexagon, keep the original rectangular hit target. */
+html[data-theme="coven"] #stack button{isolation:isolate;position:absolute;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible;transition:filter 100ms ease}
+html[data-theme="coven"] #stack button::before{content:"";display:block;position:absolute;inset:0;z-index:-1;pointer-events:none;margin:0;background:color-mix(in srgb,var(--team) 65%,var(--theme-border));clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,12px 100%,0 50%)}
+html[data-theme="coven"] #stack button::after{content:"";position:absolute;inset:1px;z-index:-1;pointer-events:none;margin:0;background:var(--theme-deep);clip-path:polygon(11px 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,11px 100%,0 50%)}
+html[data-theme="coven"] #stack button.unavailable::before{background:var(--theme-border)}
+html[data-theme="coven"] #stack button.takeover::before{background:linear-gradient(90deg,var(--red),var(--blue))}
+html[data-theme="coven"] #stack button:focus-visible{outline:2px solid var(--theme-text);outline-offset:3px}
+html[data-theme="coven"] #stack .action-flavor{color:var(--theme-muted);font-size:.78em;letter-spacing:.02em;line-height:1.15;opacity:1}
+html[data-theme="coven"] #panel{background-image:radial-gradient(ellipse at 50% 0%,#9a865f0c,transparent 65%);border:1px solid var(--theme-border);border-top-color:var(--theme-accent)}
+html[data-theme="coven"] #panel button:not(.theme-card){border-radius:5px;border-color:var(--theme-border);background:var(--theme-deep)}
+html[data-theme="coven"] #panel button.primary,html[data-theme="coven"] #panel button.selected{border-color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 12%,var(--theme-deep))}
+html[data-theme="coven"] #opponent,html[data-theme="coven"] #hint,html[data-theme="coven"] #toast,html[data-theme="coven"] #stack p{border-radius:8px;background:#15131Be8;border-color:var(--theme-border);color:var(--theme-text)}
+html[data-theme="coven"] #cancel-zone{border-radius:5px;background:#121117ee;border-color:var(--theme-border)}
+html[data-theme="coven"] .cancel-armed #cancel-zone{border-color:var(--red);background:color-mix(in srgb,var(--red) 22%,var(--theme-deep))}
+html[data-theme="coven"] .legend .temporary{background:var(--theme-redFill);box-shadow:inset 3px 3px #08070B88,inset -3px -3px #ece3cf55}
+html[data-theme="coven"] .relay-node.lit{background:var(--relay-team);box-shadow:inset 0 0 0 2px var(--theme-deep),0 0 5px #ece3cf38;outline-color:var(--theme-accent)}
+html[data-theme="coven"] .relay-node.key-node.lit{box-shadow:inset 0 0 0 2px var(--theme-deep),0 0 0 3px #08070B88,0 0 8px #ece3cf30}
+html[data-theme="coven"] .setting-label input{accent-color:var(--theme-accent)}
+
+/* Symmetric cut-corner surfaces also retain rectangular setting-button targets. */
+html[data-theme="coven"] #panel button:not(.theme-card){position:relative;isolation:isolate;background:transparent;border-color:transparent;border-radius:0;box-shadow:none;--ritual-edge:var(--theme-border);--ritual-face:var(--theme-deep)}
+html[data-theme="coven"] #panel button:not(.theme-card)::before,html[data-theme="coven"] #panel button:not(.theme-card)::after{content:"";position:absolute;z-index:-1;pointer-events:none;inset:0;clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px),0 7px);background:var(--ritual-edge)}
+html[data-theme="coven"] #panel button:not(.theme-card)::after{inset:1px;background:var(--ritual-face)}
+html[data-theme="coven"] #panel button.primary,html[data-theme="coven"] #panel button.selected{--ritual-edge:var(--theme-accent);--ritual-face:color-mix(in srgb,var(--theme-accent) 12%,var(--theme-deep))}

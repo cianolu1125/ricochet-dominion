@@ -7,6 +7,6 @@ export function themeCards(language,pending){
 }
 export function flavor(action,language){
  const id=currentTheme().id;if(id==='original')return '';
- const words={coven:{move:['踏影','Shadowstep'],action:['施术','Ritual'],missile:['施放','Invoke'],tower:['立坛','Anchor'],dismantle:['破仪','Unbind']},tang:{move:['移阵','Advance'],action:['下令','Command'],missile:['放矢','Loose'],tower:['立寨','Fortify'],dismantle:['拔寨','Breach']}};
+ const words={coven:{move:['踏影','Shadowstep'],action:['施术','Ritual'],missile:['施放','Invoke'],tower:['立坛','Anchor'],dismantle:['破仪','Unbind'],redeploy:['迁坛','Reanchor'],takeover:['夺契','Bind'],reclaim:['复契','Restore'],back:['收仪','Return']},tang:{move:['移阵','Advance'],action:['下令','Command'],missile:['放矢','Loose'],tower:['立寨','Fortify'],dismantle:['拔寨','Breach']}};
  const label=words[id]?.[action]?.[language==='en'?1:0];return label?`<small class="action-flavor">${label}</small>`:'';
 }
