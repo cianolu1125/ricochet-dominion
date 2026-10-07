@@ -1,3 +1,12 @@
+# v0.7.1 — 2026-10-07
+
+- Added Original / Coven / Tang presentation themes across menus, HUD, board geometry, event effects and synthesized audio.
+- Persisted theme selection with safe-frame deferred application and invalid/storage-failure fallback.
+- Preserved rule, physics and AI modules and existing cinematic timing/attack masks.
+- Fixed reduced-motion strategic geometry and deferred switching until ordinary feedback and cell transitions finish.
+- Added theme UI, PvE configuration, render-state isolation, audio and reduced-motion regression coverage.
+- Physical iPhone touch, FPS and audible quality remain unverified.
+
 # v0.7.0 — 2026-10-07
 
 - Added offline VS Computer with Easy / Normal / Hard; shared V0.6.2 rules, physics, actions, HP and match lengths. Local PvP is preserved.
