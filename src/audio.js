@@ -1,36 +1,6 @@
+import {currentTheme} from './themes/theme-manager.js';
+import {audioRecipe} from './themes/theme-registry.js';
 // Short authored composites share one limited bus; there is no playback backlog.
-const voices = {
-  ultimateFlight:[85,190,.70,.030],
-  ultimateCrack:[860,240,.07,.023],
-  ultimateCharge:[95,330,.26,.042],
-  ultimateBlast:[145,28,.48,.19],
-  ultimatePurge:[1100,160,.40,.028],
-  ultimateDamage:[440,95,.18,.067],
-  overload: [310, 105, .18, .028], shielded: [420, 790, .16, .032],
-  takeoverStart: [380, 540, .13, .033], takeoverComplete: [170, 670, .55, .065],
-  reclaim: [240, 620, .24, .04], restore: [220, 480, .20, .028],
-  ui: [660, 480, 0.055, 0.022],
-  launch: [420, 140, 0.14, 0.055],
-  fire: [720, 210, 0.16, 0.06],
-  bounce: [480, 330, 0.075, 0.04],
-  capture: [240, 520, 0.13, 0.04],
-  carry: [720, 340, 0.09, 0.04],
-  land: [180, 110, 0.1, 0.03],
-  damage: [155, 65, 0.16, 0.095],
-  blast: [125, 42, 0.28, 0.12],
-  destroy: [205, 45, 0.34, 0.13],
-  siege: [180, 34, 0.46, 0.17],
-  build: [280, 600, 0.26, 0.055],
-  grow: [180, 340, 0.28, 0.04],
-  disconnect: [390, 170, 0.18, 0.035],
-  reconnect: [190, 480, 0.18, 0.04],
-  convert: [180, 650, 0.48, 0.075],
-  redeploy: [510, 190, 0.4, 0.06],
-  handoff: [360, 480, 0.13, 0.03],
-  complete: [320, 640, 0.68, 0.06],
-  charge: [180, 700, 0.19, 0.055],
-  cross: [260, 100, 0.32, 0.055],
-};
 export class AudioDirector {
   constructor({ enabled = true, volume = 0.65 } = {}) {
     this.enabled = enabled;
@@ -133,7 +103,8 @@ export class AudioDirector {
     }
     if (c.state !== "running") return;
     try {
-      const recipe = voices[event.type];
+      const theme=currentTheme(),skin=audioRecipe(theme,event.type),themed=theme.id!=='original';
+      const recipe = skin?.voice;
       if (!recipe) return;
       let [start, end, duration, level] = recipe;
       if (event.type === "charge") {
@@ -213,7 +184,22 @@ export class AudioDirector {
         oscillator.start(at);
         oscillator.stop(at + length + 0.015);
       };
-      tone(start, end, now, duration, level, heavy ? "sine" : "triangle");
+      if(themed){
+        const material=skin.material;
+        tone(start,end,now,duration,level*.78,heavy?'sine':skin.waveform);
+        if(['metal','glass'].includes(material)){
+          for(const [i,ratio] of skin.partials.slice(1).entries())
+            tone(start*ratio,end*ratio,now+.004*(i+1),duration*(.75-i*.18),level*(.22-i*.07),'sine');
+        }else if(['wood','touch','stone'].includes(material)){
+          tone(theme.id==='tang'?210:310,80,now,.04,level*.36,'triangle');
+        }else if(material==='string'){
+          tone(start*1.5,end*.7,now,.075,level*.24,'triangle');
+        }else if(['drum','impact'].includes(material)){
+          tone(theme.id==='tang'?100:72,30,now,duration*.8,level*.38,'sine');
+        }else if(material==='air'){
+          tone(start*.5,end*.7,now,duration*.85,level*.23,'sine');
+        }
+      }else tone(start, end, now, duration, level, heavy ? "sine" : "triangle");
       if (heavy) {
         const noise = c.createBufferSource(),
           filter = c.createBiquadFilter(),
@@ -221,7 +207,7 @@ export class AudioDirector {
         noise.buffer = this.noise;
         filter.type = "lowpass";
         filter.frequency.setValueAtTime(
-          event.type === "siege" ? 2000 : 1200,
+          themed ? skin.noiseCutoff : event.type === "siege" ? 2000 : 1200,
           now,
         );
         filter.frequency.exponentialRampToValueAtTime(100, now + duration);
@@ -246,8 +232,8 @@ export class AudioDirector {
       )
         tone(end, end, now + duration * 0.68, duration * 0.3, level * 0.4);
       else if (event.type === "complete") {
-        tone(480, 480, now + 0.2, 0.18, 0.045);
-        tone(640, 640, now + 0.4, 0.26, 0.045);
+        tone(themed?end*.75:480, themed?end*.75:480, now + 0.2, 0.18, 0.045);
+        tone(themed?end:640, themed?end:640, now + 0.4, 0.26, 0.045);
       }
       if (event.type === "blast" && event.charge >= 2)
         tone(280, 110, now + 0.06, 0.24, 0.025);

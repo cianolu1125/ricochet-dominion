@@ -1,3 +1,5 @@
+import {currentTheme} from './themes/theme-manager.js';
+import {sigil,towerCore} from './themes/geometry.js';
 // Presentation-only coordinates and timing. These functions never settle game rules.
 const clamp=n=>Math.max(0,Math.min(1,n));
 const ease=n=>{const p=clamp(n);return p*p*(3-2*p);};
@@ -59,6 +61,7 @@ export class UltimateDirector {
 }
 // One bounded Canvas pass for core, both wave fronts and up to 50 tower fragments.
 export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
+  const theme=currentTheme(),themed=theme.id!=='original';
   const age=time-e.born,t=ultimateTiming(reduced);
   if(age<0||age>=t.duration)return;
   const center=pt(e),color=team[e.owner],ring=(p,r,alpha,width,c=color)=>{
@@ -66,24 +69,33 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
     ctx.arc(p.x,p.y,Math.max(.01,r),0,Math.PI*2);ctx.stroke();
   };
   ctx.save();
+  if(themed&&age<t.blast){
+    const q=clamp(age/230);ctx.globalAlpha=Math.sin(q*Math.PI)*.9;ctx.strokeStyle=theme.colors.accent;ctx.lineWidth=.035;
+    sigil(ctx,center.x,center.y,.28+(1-q)*1.2,theme.id,theme.id==='coven'?q*.2:0);
+  }
   if(age<t.blast) {
     // The last 50ms are an authored visual hit stop, never a rule delay.
     const q=clamp(age/230);
     ring(center,1.6*(1-q)+.18,.7,.04);
     for(let n=0;n<12;n++){
       const a=n*Math.PI/6+q*.3,r=(1-q)*2.1+.12;
-      ctx.globalAlpha=q;ctx.fillStyle=n%3?'#edf7ff':color;
+      ctx.globalAlpha=q;ctx.fillStyle=n%3?(themed?theme.colors.flash:'#edf7ff'):color;
       ctx.fillRect(center.x+Math.cos(a)*r-.03,center.y+Math.sin(a)*r-.03,.06,.06);
     }
-    ctx.globalAlpha=q;ctx.fillStyle='#f1f8fc';
+    ctx.globalAlpha=q;ctx.fillStyle=(themed?theme.colors.flash:'#f1f8fc');
     ctx.beginPath();ctx.arc(center.x,center.y,.08+.12*q,0,Math.PI*2);ctx.fill();
   }
   const boom=(age-t.blast)/210;
   if(boom>=0&&boom<1){
-    ring(center,.2+boom*3.3,1-boom,.11,'#f5fbff');
+    ring(center,.2+boom*3.3,1-boom,.11,(themed?theme.colors.flash:'#f5fbff'));
     ring(center,.2+boom*2.8,(1-boom)*.8,.16);
-    ctx.globalAlpha=(1-boom)*.7;ctx.fillStyle='#f4faff';
+    ctx.globalAlpha=(1-boom)*.7;ctx.fillStyle=(themed?theme.colors.flash:'#f4faff');
     ctx.beginPath();ctx.arc(center.x,center.y,.15+(1-boom)*.42,0,Math.PI*2);ctx.fill();
+    if(themed){
+      ctx.globalAlpha=(1-boom)*.9;ctx.lineWidth=.055;ctx.strokeStyle=theme.colors.accent;
+      if(theme.id==='coven'){ctx.fillStyle=theme.colors.bg;ctx.beginPath();ctx.arc(center.x,center.y,.22+boom*.55,0,Math.PI*2);ctx.fill();sigil(ctx,center.x,center.y,.35+boom*.8,'coven');}
+      else sigil(ctx,center.x,center.y,.3+boom*1.4,'tang');
+    }
   }
   const drawWave=(start,duration,thin)=>{
     const q=(age-start)/duration;if(q<0||q>1.14)return;
@@ -96,8 +108,11 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
       const d=Math.max(Math.abs(p.x-e.x),Math.abs(p.y-e.y)),tail=radius-d;
       if(tail<-.35||tail>(thin?.7:1.5))continue;
       const a=pt(p);ctx.globalAlpha=alpha*(1-Math.max(0,tail)/(thin?.7:1.5))*(thin?.65:.8);
-      ctx.fillStyle=thin?'#edf7ff':color;ctx.fillRect(a.x-.46,a.y-.46,.92,.92);
-      if(!thin){ctx.strokeStyle='#eef8ff';ctx.lineWidth=.035;ctx.strokeRect(a.x-.46,a.y-.46,.92,.92);}
+      ctx.fillStyle=thin?(themed?theme.colors.flash:'#edf7ff'):color;ctx.fillRect(a.x-.46,a.y-.46,.92,.92);
+      if(!thin){ctx.strokeStyle=themed?theme.colors.accent:(themed?theme.colors.flash:'#eef8ff');ctx.lineWidth=.035;
+        if(themed){sigil(ctx,a.x,a.y,theme.id==='coven'?.23:.30,theme.id);}
+        else ctx.strokeRect(a.x-.46,a.y-.46,.92,.92);
+      }
     }
   };
   drawWave(t.purge,t.purgeDuration,false);
@@ -106,7 +121,7 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
     const world={x:i%e.width+.5,y:Math.floor(i/e.width)+.5};
     const local=age-waveDelay(e,world,false),q=local/120;
     if(local<0||q>=1)continue;
-    const p=pt(world);ctx.globalAlpha=(1-q)*.7;ctx.strokeStyle='#eff8ff';ctx.lineWidth=.035;
+    const p=pt(world);ctx.globalAlpha=(1-q)*.7;ctx.strokeStyle=(themed?theme.colors.flash:'#eff8ff');ctx.lineWidth=.035;
     for(const [dx,dy] of [[-1,-1],[1,1]]) {
       const r=.35+q*.15;ctx.beginPath();ctx.moveTo(p.x+dx*(r-.16),p.y+dy*r);
       ctx.lineTo(p.x+dx*r,p.y+dy*r);ctx.lineTo(p.x+dx*r,p.y+dy*(r-.16));ctx.stroke();
@@ -116,6 +131,7 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
   for(const tower of e.destroyedTowers){
     const p={x:tower.pos.x+.5,y:tower.pos.y+.5},a=pt(p),arrival=waveDelay(e,p,reduced),local=age-arrival;
     if(local<0){
+      if(themed){towerCore(ctx,a,tower,theme);continue;}
       ctx.globalAlpha=1;ctx.fillStyle='#11212f';ctx.fillRect(a.x-.35,a.y-.35,.7,.7);
       ctx.strokeStyle=team[tower.owner];ctx.lineWidth=.065;ctx.strokeRect(a.x-.33,a.y-.33,.66,.66);
       ctx.fillStyle=team[tower.owner]+'77';ctx.fillRect(a.x-.13,a.y-.13,.26,.26);continue;
@@ -124,7 +140,7 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
     ring(a,.25+q*.8,(1-q)*.6,.04);
     for(let n=0;n<(reduced?3:8)&&fragments-->0;n++){
       const angle=n*Math.PI/4,travel=q*.85;
-      ctx.globalAlpha=1-q;ctx.fillStyle=local<45?'#f7fcff':team[tower.owner];
+      ctx.globalAlpha=1-q;ctx.fillStyle=local<45?(themed?theme.colors.flash:'#f7fcff'):team[tower.owner];
       ctx.save();ctx.translate(a.x+Math.cos(angle)*travel,a.y+Math.sin(angle)*travel+q*q*.45);
       ctx.rotate(q*3+n);ctx.fillRect(-.06,-.04,.12,.08);ctx.restore();
     }
@@ -133,9 +149,9 @@ export function drawUltimate(ctx,e,time,pt,team,reduced=false,rotation=0) {
     const p={x:e.vanguardPosition.x+.5,y:e.vanguardPosition.y+.5};
     const local=age-waveDelay(e,p,reduced,true),q=local/(reduced?220:350),a=pt(p);
     if(local>=0&&q<1){
-      ring(a,.35+q*.72,1-q,.06,'#eef8ff');
+      ring(a,.35+q*.72,1-q,.06,(themed?theme.colors.flash:'#eef8ff'));
       ctx.save();ctx.translate(a.x,a.y);ctx.rotate(-rotation);
-      ctx.globalAlpha=Math.min(1,local/40)*(1-q);ctx.fillStyle='#f5faff';ctx.font='700 .60px system-ui';
+      ctx.globalAlpha=Math.min(1,local/40)*(1-q);ctx.fillStyle=(themed?theme.colors.flash:'#f5faff');ctx.font='700 .60px system-ui';
       ctx.textAlign='center';ctx.fillText('−1 HP',0,-.7-q*.65);ctx.restore();
     }
   }

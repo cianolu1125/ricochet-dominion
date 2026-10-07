@@ -1,3 +1,5 @@
+import {currentTheme} from './themes/theme-manager.js';
+import {protectedTile,towerCore,player,projectile} from './themes/geometry.js';
 import { relayStatus } from "./engine.js";
 import { tilePresentation } from "./feedback.js";
 import { drawEffects } from "./effects.js";
@@ -5,18 +7,16 @@ import { toView } from "./view.js";
 import { origin, previewImpact } from "./physics.js";
 import { regionContours } from "./region-outline.js";
 import { layoutBattlefieldLabel } from "./battlefield-labels.js";
-export const TEAM = { 1: "#efaaa2", 2: "#9bc7f0" };
-const FILL = { 0: "#253542", 1: "#66454e", 2: "#355976" };
-const RGB = Object.fromEntries(
-  Object.entries(FILL).map(([owner, hex]) => [
-    owner,
-    [1, 3, 5].map((n) => parseInt(hex.slice(n, n + 2), 16)),
-  ]),
-);
+export const TEAM = { get 1(){return currentTheme().team[1]}, get 2(){return currentTheme().team[2]} };
+const FILL = {get 0(){return currentTheme().board[0]},get 1(){return currentTheme().board[1]},get 2(){return currentTheme().board[2]}};
+let cachedTheme,RGB;
+function syncColors(){const theme=currentTheme();if(theme!==cachedTheme){cachedTheme=theme;RGB=Object.fromEntries(Object.entries(theme.board).map(([owner,hex])=>[owner,[1,3,5].map(n=>parseInt(hex.slice(n,n+2),16))]));}}
 function blend(from, to, progress) {
   return `rgb(${RGB[from].map((n, i) => Math.round(n + (RGB[to][i] - n) * progress)).join(",")})`;
 }
 export function render(canvas, s, v) {
+  syncColors();
+  const theme=currentTheme(),themed=theme.id!=="original";
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const width = canvas.clientWidth || parseFloat(canvas.style.width) || 360,
@@ -115,7 +115,7 @@ export function render(canvas, s, v) {
       if(protection>0) {
         ctx.save();ctx.globalAlpha=protection;
         ctx.strokeStyle=TEAM[show.owner]+'88';ctx.lineWidth=Math.max(.025,.8/tile);
-        ctx.strokeRect(p.x-.35,p.y-.35,.70,.70);
+        if(themed)protectedTile(ctx,p,theme,tile);else ctx.strokeRect(p.x-.35,p.y-.35,.70,.70);
         ctx.restore();
       }
       if(!pending.has(i) && transition?.fromPending && progress<1)pending.set(i,transition.fromPending);
@@ -175,12 +175,13 @@ export function render(canvas, s, v) {
     const p = pt({ x: t.pos.x + 0.5, y: t.pos.y + 0.5 }),
       selected =
         v.select && (v.selectIds || []).includes(t.id);
+    const overload=t.state==='overloaded', contested=t.state==='contested';
+    if(themed)towerCore(ctx,p,t,theme);else{
     ctx.fillStyle = "#11212f";
     ctx.fillRect(p.x - 0.35, p.y - 0.35, 0.7, 0.7);
     ctx.strokeStyle = TEAM[t.owner];
     ctx.lineWidth = 0.065;
     ctx.setLineDash([]);
-    const overload=t.state==='overloaded', contested=t.state==='contested';
     ctx.globalAlpha=overload?.6:1;
     if(overload) {
       for(const [dx,dy] of [[-1,-1],[1,1]]){ctx.beginPath();ctx.moveTo(p.x+dx*.1,p.y+dy*.33);ctx.lineTo(p.x+dx*.33,p.y+dy*.33);ctx.lineTo(p.x+dx*.33,p.y+dy*.1);ctx.stroke();}
@@ -189,9 +190,10 @@ export function render(canvas, s, v) {
     ctx.setLineDash([]);
     ctx.fillStyle = TEAM[t.owner] + (overload ? "40" : "77");
     ctx.fillRect(p.x - 0.13, p.y - 0.13, 0.26, 0.26);
+    }
     const relay = relayStatus(s, t);
     if (relay === "available") {
-      ctx.save();ctx.globalAlpha=.82;ctx.strokeStyle=TEAM[t.owner];
+      ctx.save();ctx.globalAlpha=.82;ctx.strokeStyle=themed?theme.colors.accent:TEAM[t.owner];
       ctx.lineWidth=Math.max(.035,1.1/tile);
       for(const [r,period,dir] of [[.57,4800,1],[.69,6000,-1]]) {
         const orbit=v.reduced?-.8:dir*v.time/period*Math.PI*2;
@@ -279,6 +281,10 @@ export function render(canvas, s, v) {
       p.x = offset.x;
       p.y = offset.y;
     }
+    if(themed){
+      const dir=s.profile==='desktop'?(owner===1?1:-1):(owner===v.owner?-1:1);
+      player(ctx,p,owner,s,v,theme,dir);continue;
+    }
     ctx.lineWidth = 0.08;
     circle(p, 0.34, "#0d1c29");
     const hurt = v.effects.find(
@@ -359,7 +365,7 @@ export function render(canvas, s, v) {
           y: origin(s).y + (aim.y / len) * (1 + aim.power * 4),
         },
         end = pt(worldEnd);
-      ctx.strokeStyle = v.cancelArmed ? "#efaaa2" : TEAM[s.current];
+      ctx.strokeStyle = v.cancelArmed ? theme.colors.red : TEAM[s.current];
       ctx.lineWidth = 0.075;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
@@ -368,7 +374,7 @@ export function render(canvas, s, v) {
       ctx.save();
       ctx.translate(end.x, end.y);
       ctx.rotate(Math.atan2(end.y - p.y, end.x - p.x));
-      ctx.fillStyle = v.cancelArmed ? "#efaaa2" : TEAM[s.current];
+      ctx.fillStyle = v.cancelArmed ? theme.colors.red : TEAM[s.current];
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(-0.3, -0.16);
@@ -404,12 +410,14 @@ export function render(canvas, s, v) {
       n++
     ) {
       ctx.globalAlpha = ((n + 1) / m.trail.length) * 0.5;
-      circle(pt(m.trail[n]), 0.04 + (m.charge || 0) * 0.016, TEAM[s.current]);
+      circle(pt(m.trail[n]), 0.04 + (m.charge || 0) * 0.016, themed ? (theme.id==='coven' ? theme.colors.text : theme.colors.accent) : TEAM[s.current]);
     }
     ctx.globalAlpha = 1;
     if (m.kind === "missile") {
       const p = pt(m),
         f = pt({ x: m.x + m.vx, y: m.y + m.vy });
+      if(themed)projectile(ctx,p,Math.atan2(f.y-p.y,f.x-p.x),m.charge,theme);
+      else{
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(Math.atan2(f.y - p.y, f.x - p.x));
@@ -424,6 +432,7 @@ export function render(canvas, s, v) {
         ctx.lineWidth = 0.03;
         circle(p, 0.35, TEAM[s.current] + "a0", true);
       }
+      }
       if (m.carried) {
         const p2 = pt({ x: m.x, y: m.y });
         ctx.strokeStyle = TEAM[m.carried] + "88";
@@ -436,7 +445,7 @@ export function render(canvas, s, v) {
   if(v.camera?.dim || v.camera?.exposure) {
     ctx.save();ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.globalAlpha=v.camera.exposure||v.camera.dim;
-    ctx.fillStyle=v.camera.exposure?'#eef7ff':'#02070e';ctx.fillRect(0,0,width,height);ctx.restore();
+    ctx.fillStyle=v.camera.exposure?(themed?theme.colors.flash:'#eef7ff'):(themed?theme.colors.bg:'#02070e');ctx.fillRect(0,0,width,height);ctx.restore();
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
