@@ -25,7 +25,7 @@ export async function setup(
           builder.onLoad({ filter: /src\/main\.js$/ }, async (args) => ({
             contents:
               (await readFile(args.path, "utf8")) +
-              "\nwindow.useFixtureForTest=s=>{state=s;update();};window.freezeForTest=until=>{feedback.freezeUntil=until;};",
+              "\nwindow.useFixtureForTest=s=>{state=s;update();};window.freezeForTest=until=>{feedback.freezeUntil=until;};window.presentForTest=e=>submit(e.type,e);",
             loader: "js",
           }));
         },

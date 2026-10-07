@@ -161,3 +161,17 @@ test("rapid genuine impacts have bounded live audio voices and expired voices ar
     h.cleanup();
   }
 });
+
+test('all themed sound recipes produce voices, share one context and cleanly stop',async()=>{
+ const {themeManager}=await import('../src/themes/theme-manager.js');
+ const {audioEvents}=await import('../src/themes/theme-registry.js');
+ const h=harness();try{
+  const a=new AudioDirector();
+  for(const id of ['original','coven','tang']){
+   themeManager.request(id);
+   for(const type of audioEvents){const n=h.sources.length;a.play({type,charge:3});assert.ok(h.sources.length>n,id+':'+type);assert.ok(a.active.length<=8)}
+   a.stop();assert.equal(a.active.length,0);
+  }
+  assert.equal(h.contexts,1);
+ }finally{themeManager.request('original');h.cleanup()}
+});

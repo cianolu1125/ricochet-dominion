@@ -1,3 +1,6 @@
+import {themeManager,currentTheme} from './themes/theme-manager.js';
+import {themeCards,themeLabel,flavor} from './themes/theme-ui.js';
+import './themes/themes.css';
 import "./style.css";
 import { AIController } from "./ai/ai-controller.js";
 import { executeDecision } from "./ai/ai-executor.js";
@@ -63,6 +66,8 @@ try {
       ? reduced.matches
       : localStorage.getItem("rd-reduced") === "on";
 } catch {}
+themeManager.apply(document);
+let themeReturn="home";
 const relayHUD = new RelayHUD($("relay-hud"));
 const audio = new AudioDirector({ enabled: sound, volume });
 audio.onStateChange = () => {
@@ -233,7 +238,7 @@ function playerHUD(owner) {
   return `<strong>${teamName(owner)} <span>${p.hp}/${p.maxHp} HP</span></strong><div class="hp-bar" aria-hidden="true">${Array.from({ length: p.maxHp }, (_, i) => `<i class="${i < p.hp ? "" : "empty"}"></i>`).join("")}</div><div class="stats">${((100 * c[owner]) / state.cells.length).toFixed(1)}% · □ ${n}/5</div>`;
 }
 const button = (action, label, reason = "", cls = "") =>
-  `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}</button>`;
+  `<button data-action="${action}" class="${reason ? "unavailable " : ""}${cls}" ${reason ? `aria-disabled="true" data-reason="${reason}"` : ""}>${label}${flavor(action,getLanguage())}</button>`;
 function drawStack() {
   const stack = $("stack"),
     idle =
@@ -458,6 +463,7 @@ function panel(kind, content) {
   overlayKind = kind;
   $("overlay").hidden = false;
   $("panel").innerHTML = content;
+  $("panel").dataset.panelKind=kind;
   menuLevel = null;
   selection = null;
   pointer = null;
@@ -509,7 +515,7 @@ function home() {
   settingsOrigin = "home";
   panel(
     "home",
-    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${t("Subtitle")}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${t({10:"Quick",14:"Standard",18:"Long"}[n])}<small>${n} ${t("Rounds")}<br>${n} HP</small></button>`).join("")}</div><button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer">${t("vs Computer")}<small>${t("Choose difficulty")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><p class="version">v${VERSION}</p>`,
+    `<div class="team-shapes" aria-hidden="true"><span></span><span></span><span></span></div><p class="eyebrow">${currentTheme().id==='original'?t("Subtitle"):currentTheme().meta.subtitle[getLanguage()==='en'?1:0]}</p><h1 id="panel-title">${t("Title")}</h1><div class="mode-grid">${[10, 14, 18].map((n) => `<button data-panel="round-${n}" class="${n === selectedRounds ? "selected" : ""}">${t({10:"Quick",14:"Standard",18:"Long"}[n])}<small>${n} ${t("Rounds")}<br>${n} HP</small></button>`).join("")}</div><button class="primary" data-panel="start">${t("Local PvP")}</button><div class="future-modes"><button data-panel="tutorial" disabled>${t("Tutorial")}<small>${t("Coming Soon")}</small></button><button data-panel="computer">${t("vs Computer")}<small>${t("Choose difficulty")}</small></button></div><button class="settings-entry" data-panel="settings">${t("Settings")}</button><button class="settings-entry theme-entry" data-panel="themes">${themeLabel(getLanguage())} · ${currentTheme().meta[getLanguage()==='en'?'en':'zh']}</button><p class="version">v${VERSION}</p>`,
   );
 }
 function difficultyPanel() {
@@ -706,6 +712,9 @@ $("panel").addEventListener("click", (event) => {
   if (!b || b.disabled) return;
   const action = b.dataset.panel;
   if (action === "start") start();
+  else if (action === "themes") {themeReturn=overlayKind;themePanel();}
+  else if (action === "theme-back") {if(themeReturn==='menu')menuPanel();else home();}
+  else if (action.startsWith("theme-")) {themeManager.request(action.slice(6),themeSafe());themePanel();tone();}
   else if (action === "computer") difficultyPanel();
   else if (action.startsWith("difficulty-")) { difficulty = action.slice(11); difficultyPanel(); }
   else if (action === "start-computer") { matchMode = "pve"; start(); }
@@ -756,6 +765,18 @@ $("opponent-close").onclick = () => {
   update();
 };
 $("help").onclick = rules;
+function themeSafe(){
+  const now=performance.now();
+  return pointer===null&&!state.activeBody&&!cinematic.busy(now)&&rotationStart===null&&observeUntil===null&&!feedback.frozen(now)&&settlingUntil===null&&
+    !feedback.effects.some(e=>e.born+e.duration>now)&&
+    ![...transitions.values()].some(e=>e.born+e.delay+e.duration>now);
+}
+function themePanel(){panel('themes',themeCards(getLanguage(),themeManager.pending));}
+themeManager.subscribe(()=>{
+ themeManager.apply(document);audio.stop();relayHUD.key='';
+ const game=$('game');game.classList.remove('theme-changing');void game.offsetWidth;game.classList.add('theme-changing');
+ update();
+});
 function menuPanel() {
   if (!overlayKind) {
     savedMenu = menuLevel || "root";
@@ -763,7 +784,7 @@ function menuPanel() {
   }
   panel(
     "menu",
-    `<h2 id="panel-title">${t("Settings")}</h2><p>${t("Language")}</p><div class="row"><button data-panel="lang-zh" class="${getLanguage() === "zh-CN" ? "selected" : ""}">简体中文</button><button data-panel="lang-en" class="${getLanguage() === "en" ? "selected" : ""}">English</button></div><button class="primary" data-panel="close">${t(settingsOrigin === "home" ? "Back" : "Continue")}</button><div class="row"><button data-panel="rules">${t("Rules")}</button><button data-panel="sound">${t("Sound")} ${t(sound ? "On" : "Off")}</button></div><p id="sound-status" class="sound-status">${t(audio.status() === "waiting" ? "Tap to enable audio" : audio.status() === "ready" ? "Audio ready" : "Audio off")}</p><label class="setting-label">${t("Volume")} <output id="volume-value">${Math.round(volume * 100)}%</output><input id="volume" type="range" min="0" max="100" value="${Math.round(volume * 100)}" aria-label="${t("Volume")}"></label><button class="settings-entry" data-panel="reduced">${t("Reduce Motion")} ${t(reduceMotion ? "On" : "Off")}</button>${settingsOrigin === "game" ? `<div class="row"><button data-panel="restart">${t("Restart")}</button><button data-panel="main-menu">${t("Main Menu")}</button></div>` : ""}<p class="version">v${VERSION}</p>`,
+    `<h2 id="panel-title">${t("Settings")}</h2><p>${t("Language")}</p><div class="row"><button data-panel="lang-zh" class="${getLanguage() === "zh-CN" ? "selected" : ""}">简体中文</button><button data-panel="lang-en" class="${getLanguage() === "en" ? "selected" : ""}">English</button></div><button class="primary" data-panel="close">${t(settingsOrigin === "home" ? "Back" : "Continue")}</button><div class="row"><button data-panel="rules">${t("Rules")}</button><button data-panel="sound">${t("Sound")} ${t(sound ? "On" : "Off")}</button></div><p id="sound-status" class="sound-status">${t(audio.status() === "waiting" ? "Tap to enable audio" : audio.status() === "ready" ? "Audio ready" : "Audio off")}</p><label class="setting-label">${t("Volume")} <output id="volume-value">${Math.round(volume * 100)}%</output><input id="volume" type="range" min="0" max="100" value="${Math.round(volume * 100)}" aria-label="${t("Volume")}"></label><button class="settings-entry" data-panel="reduced">${t("Reduce Motion")} ${t(reduceMotion ? "On" : "Off")}</button>${settingsOrigin === "game" ? `<div class="row"><button data-panel="restart">${t("Restart")}</button><button data-panel="main-menu">${t("Main Menu")}</button></div>` : ""}<button class="settings-entry theme-entry" data-panel="themes">${themeLabel(getLanguage())} · ${currentTheme().meta[getLanguage()==='en'?'en':'zh']}</button><p class="version">v${VERSION}</p>`,
   );
 }
 $("menu").onclick = () => {
@@ -973,6 +994,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (rotationStart !== null || observeUntil !== null || settlingUntil !== null)
     return;
+  if (overlayKind === "themes") {if(themeReturn==='menu')menuPanel();else home();return;}
   if (overlayKind === "rules") {
     if (rulesReturn === "home") home();
     else if (rulesReturn === "menu") menuPanel();
@@ -1002,6 +1024,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 function frame(time) {
+  if(themeManager.flush(themeSafe())&&overlayKind==='themes')themePanel();
   if(cinematic.update(time,state)) {
     if(endAfterUltimate&&!state.winner){endAfterUltimate=false;end(computerTurn());}
     else endAfterUltimate=false;

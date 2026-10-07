@@ -1,3 +1,6 @@
+import {currentTheme} from './themes/theme-manager.js';
+import {sigil} from './themes/geometry.js';
+import {drawThemeEvent} from './themes/event-effects.js';
 import {regionContours} from "./region-outline.js";
 import {drawUltimate} from './ultimate.js';
 import { chargeSpec, effectDuration } from "./feedback.js";
@@ -12,22 +15,19 @@ export function drawEffects(
   rotation = 0,
   labels = {},
 ) {
+  const theme=currentTheme(),themed=theme.id!=='original';
   let budget = reduced ? 24 : 180;
   const ring = (x, y, r, color, alpha = 1, width = 0.035) => {
     ctx.globalAlpha = Math.max(0, alpha);
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(0.01, r), 0, Math.PI * 2);
-    ctx.stroke();
+    if(themed)sigil(ctx,x,y,Math.max(.01,r),theme.id);else {ctx.beginPath();ctx.arc(x,y,Math.max(.01,r),0,Math.PI*2);ctx.stroke();}
   };
   const point = (x, y, r, color, alpha) => {
     if (budget-- <= 0) return;
     ctx.globalAlpha = Math.max(0, alpha);
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    if(themed){ctx.save();ctx.translate(x,y);ctx.rotate(theme.id==='coven'?Math.PI/4:0);ctx.fillRect(-r,-r,r*2,r*2);ctx.restore();}else {ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
   };
   for (const e of events) {
     const strategic = ['overload','shielded','takeoverStart','takeoverComplete','reclaim','restore','disconnect','reconnect'].includes(e.type);
@@ -40,6 +40,8 @@ export function drawEffects(
     ctx.save();
     if(e.type==='charge3Ultimate') {
       drawUltimate(ctx,e,time,pt,team,reduced,rotation);
+    } else if(themed&&drawThemeEvent(ctx,e,p,q,age,theme,reduced,()=>budget-->0,pt)) {
+      if(strategic&&labels[e.type]&&!['reclaim','restore','disconnect','reconnect'].includes(e.type)){ctx.translate(p.x,p.y);ctx.rotate(-rotation);ctx.globalAlpha=Math.sin(q*Math.PI);ctx.fillStyle=color;ctx.font='600 .44px system-ui';ctx.textAlign='center';ctx.fillText(labels[e.type],0,-1.04);}
     } else if(strategic) {
       const complete=e.type==='takeoverComplete', restarting=['reclaim','restore','reconnect'].includes(e.type);
       if(reduced) {
@@ -85,7 +87,7 @@ export function drawEffects(
             Number(e.eventId?.split("-").at(-1) || 0) * 0.8,
           d = 0.09 + q * 0.4;
         ctx.globalAlpha = 1 - q;
-        ctx.strokeStyle = n === 0 ? "#edf4f8" : color;
+        ctx.strokeStyle = n === 0 ? (themed?theme.colors.flash:"#edf4f8") : color;
         ctx.lineWidth = 0.045;
         ctx.beginPath();
         ctx.moveTo(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d);
@@ -145,7 +147,7 @@ export function drawEffects(
           p.x,
           p.y,
           0.08 + (e.charge || 1) * 0.025,
-          "#eff8ff",
+          (themed?theme.colors.flash:"#eff8ff"),
           Math.sin(((q - 0.78) / 0.22) * Math.PI),
         );
         ring(p.x, p.y, 0.22 + (q - 0.78) * 1.8, color, (1 - q) / 0.22, 0.045);
@@ -184,7 +186,7 @@ export function drawEffects(
         if (age < delay || age > delay + 90) continue;
         const c = pt(cell);
         ctx.globalAlpha = (1 - (age - delay) / 90) * 0.55;
-        ctx.strokeStyle = "#deedf9";
+        ctx.strokeStyle = (themed?theme.colors.flash:"#deedf9");
         ctx.lineWidth = 0.025;
         ctx.strokeRect(c.x - 0.4, c.y - 0.4, 0.8, 0.8);
       }
@@ -205,7 +207,7 @@ export function drawEffects(
       ctx.translate(p.x, p.y);
       ctx.rotate(-rotation);
       ctx.globalAlpha = 1 - q;
-      ctx.fillStyle = "#fff0ef";
+      ctx.fillStyle = (themed?theme.colors.flash:"#fff0ef");
       ctx.font = "700 .46px system-ui";
       ctx.textAlign = "center";
       const direction = e.drift || 0.3;
@@ -220,7 +222,7 @@ export function drawEffects(
       const target = team[e.targetOwner || e.owner] || color;
       if (age < hold) {
         ctx.globalAlpha = 0.75;
-        ctx.fillStyle = "#eef5fa";
+        ctx.fillStyle = (themed?theme.colors.flash:"#eef5fa");
         ctx.fillRect(p.x - 0.34, p.y - 0.34, 0.68, 0.68);
         ctx.strokeStyle = target;
         ctx.lineWidth = 0.04;
@@ -264,7 +266,7 @@ export function drawEffects(
           );
       }
     } else if (e.type === "blast") {
-      if (age < 65) point(p.x, p.y, 0.16, "#f1f6fa", 1 - age / 65);
+      if (age < 65) point(p.x, p.y, 0.16, (themed?theme.colors.flash:"#f1f6fa"), 1 - age / 65);
       ring(
         p.x,
         p.y,
