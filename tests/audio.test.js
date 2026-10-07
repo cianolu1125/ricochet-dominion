@@ -175,3 +175,12 @@ test('all themed sound recipes produce voices, share one context and cleanly sto
   assert.equal(h.contexts,1);
  }finally{themeManager.request('original');h.cleanup()}
 });
+test('COVEN charge has authored 1/2/3 layers and absorption ends before impact',async()=>{
+ const {themeManager}=await import('../src/themes/theme-manager.js');const h=harness();
+ try{themeManager.request('coven');const a=new AudioDirector(),counts=[];
+ for(const charge of [1,2,3]){const n=h.sources.length;a.play({type:'charge',charge});counts.push(h.sources.length-n);a.stop();}
+ assert.deepEqual(counts,[1,2,3]);
+ const n=h.sources.length;a.play({type:'ultimateCharge'});const sources=h.sources.slice(n);
+ assert.ok(sources.every(s=>s.stopAt<.26));assert.equal(sources.length,3);
+ }finally{themeManager.request('original');h.cleanup()}
+});
