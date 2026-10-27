@@ -7,13 +7,23 @@
 - `npm run check`、`npm run build`、`git fsck --full`、`git diff --check` 通过。
 - 隔离目录 `npm ci --offline --cache /workspace/.npm-cache` 成功安装 24 个包。首次默认沙箱拦截 esbuild 子进程（EPERM），经受支持的执行权限重试成功。原项目依赖目录未被重装。
 - 默认命令沙箱的 Git／curl 请求因无法连接 proxy:8080 失败；使用 `with_additional_permissions` 的 `network.enabled=true` 后，GitHub `ls-remote` 和 fetch 成功，npm registry 返回 HTTP 200。因此不能把最初错误归结为代理服务故障。后续网络命令必须请求受支持的网络权限，保留代理与 TLS 校验。
-- GitHub main 仍为 c26c2047929bdf164ce96b8b0d3c87f504369d07。Git 推送 dry-run 成功；真实文档分支推送结果随最终交接补记。
+- GitHub main 仍为 c26c2047929bdf164ce96b8b0d3c87f504369d07。真实分支 `cloud-readiness-20261027` 已推送成功，文档基线提交 ae8c0cc；最终补记保存在该分支后续提交。
 - Sites 源码经短期凭据和获准网络权限成功克隆，HEAD 为 95d603d186984938a5d8cdb9a3d93f386e916d18。当前 GitHub 工作区与该 Sites 基线的 src、package.json、锁文件、index.html、hosting.json 共 45 文件逐字节一致。
 - 已将保存的第17版重新部署，部署 appgdep_6ae07bbbc5a081918c47fb1dd97757b3 返回 succeeded，线上 URL 为 https://ricochet-dominion.cianolu.chatgpt.site 。
 
 ## 本次交接与发布范围
 
-本次新增 docs/cloud 文档及测试证据，保持游戏版本 v0.7.2。源码上传和新版本发布将使用独立于 GitHub 的 Sites 源码历史。第17版重部署已成功；新增文档提交的发布结果以最终交接中的真实返回为准，不将重部署当作新源码发布证据。
+本次新增 docs/cloud 文档及测试证据，保持游戏版本 v0.7.2。源码上传和新版本发布使用独立于 GitHub 的 Sites 源码历史。
+
+完整链路已实测通过：Sites 新文档源码提交 `f345da3c69ca00f6467df3140528cc92e5eb53cf` 推送 main → 在该 checkout 运行生产构建 → 打包 manifest 与 dist → save_site_version 保存第18版 → deploy_site_version 成功。
+
+- 第18版 ID：`appgprj_6ac110b4c20881918a5d97f4403b3f15~appgver_80edc2b3fbe081918554cbe5da80cdca`。
+- 部署 ID：`appgdep_6ae07cf96ca48191a9c566944efa737f`，状态 `succeeded`。
+- 成功时间：2026-10-27 18:29:27 北京时间。
+- 归档：SHA256 `ad1076a89f2f53e53aadda49d561b242e3529de21ab489c867c618e2f0d3124e`，215040 bytes，5 文件。
+- 线上地址：https://ricochet-dominion.cianolu.chatgpt.site 。
+
+Sites 第18版包含发布前交接文本；本节发布后补记提交到 GitHub 文档分支，避免为记录发布结果而无限重复发布。两端运行代码不变，最终补记差异仅在文档。
 
 前一聊天新增的 AGENTS.md、docs/cloud、备份包未出现在本次初始工作区。无法据此断言所有云端临时文件能跨聊天保留。本次交接文件应提交到远程源码，后续从远程或已保存版本恢复；未读取到的原始附件和账户记忆仍不声称已迁移。
 
